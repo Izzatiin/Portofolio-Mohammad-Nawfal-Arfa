@@ -41,5 +41,5 @@ Berikut adalah gambaran singkat mengenai struktur file dalam proyek ini:
 Jika Anda ingin berdiskusi atau berkolaborasi, silakan hubungi saya melalui:
 
 * **GitHub:** [@izzatiin](https://github.com/izzatiin)
-* **Email:** [nawfalarfa@email.com] 
+* **Email:** nawfalarfa@email.com
 
