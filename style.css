@@ -73,7 +73,7 @@ body::after {
 }
 
 .section {
-  padding: 60px 0;
+  padding: 90px 0 60px;
 }
 
 
@@ -82,7 +82,7 @@ body::after {
   font-size: 2.5rem;
   font-weight: 700;
   text-align: center;
-  margin-bottom: 80px;
+  margin-bottom: 40px;
   color: #ffffff;
   position: relative;
 }
@@ -105,7 +105,7 @@ body::after {
   width: 100%;
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgb(255, 255, 255);
+  border-bottom: 1px solid rgba(255, 56, 56, 0.25);
   z-index: 1000;
   transition: all 0.3s ease;
 }
@@ -272,7 +272,7 @@ body::after {
   padding: 10px;
   border-radius: 50%;
   transition: all 0.3s ease;
-  background: rgba(14, 33, 64, 0.5);
+  background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(5px);
 }
 
@@ -336,8 +336,12 @@ body::after {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  padding: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 56, 56, 0.4);
   border-radius: 50%;
   font-size: 10px;
   font-weight: bold;
@@ -356,8 +360,7 @@ body::after {
 
 .orbit-icon:hover {
   background: rgba(255, 56, 56, 0.4);
-  transform: scale(1.2);
-  box-shadow: 0 0 10px rgba(255, 56, 56, 0.5);
+  box-shadow: 0 0 14px rgba(255, 56, 56, 0.7);
 }
 
 @keyframes sunGlow {
@@ -513,13 +516,13 @@ body::after {
     top: 70px;
     left: 0;
     width: 100%;
-    background: rgba(6, 21, 38, 0.95);
+    background: rgba(0, 0, 0, 0.95);
     backdrop-filter: blur(10px);
     flex-direction: column;
     padding: 20px;
     transform: translateX(-100%);
     transition: transform 0.3s ease;
-    border-bottom: 1px solid rgba(56, 182, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 56, 56, 0.25);
   }
 
   .nav-menu.active {
@@ -563,57 +566,15 @@ body::after {
 
 
 
-  .earth-container {
-    width: 30px;
-    height: 30px;
-    top: -15px;
-  }
 
-  .orbit-icon.html {
-    width: 20px;
-    height: 20px;
-  }
 
-  .orbit-icon.css {
-    width: 12px;
-    height: 12px;
-  }
 
-  .orbit-icon.js {
-    width: 16px;
-    height: 16px;
-  }
 
-  .orbit-icon.react {
-    width: 18px;
-    height: 18px;
-  }
 
-  .orbit-icon.nodejs {
-    width: 20px;
-    height: 20px;
-  }
 
-  .orbit-icon.python {
-    width: 22px;
-    height: 22px;
-  }
 
-  .orbit-icon.git {
-    width: 24px;
-    height: 24px;
-  }
 
-  .moon-orbit {
-    width: 60px;
-    height: 60px;
-  }
 
-  .orbit-icon.moon {
-    width: 9px;
-    height: 9px;
-    top: -4.5px;
-  }
 
 
 }
@@ -659,57 +620,15 @@ body::after {
 
 
 
-  .earth-container {
-    width: 24px;
-    height: 24px;
-    top: -12px;
-  }
 
-  .orbit-icon.html {
-    width: 16px;
-    height: 16px;
-  }
 
-  .orbit-icon.css {
-    width: 10px;
-    height: 10px;
-  }
 
-  .orbit-icon.js {
-    width: 12px;
-    height: 12px;
-  }
 
-  .orbit-icon.react {
-    width: 14px;
-    height: 14px;
-  }
 
-  .orbit-icon.nodejs {
-    width: 16px;
-    height: 16px;
-  }
 
-  .orbit-icon.python {
-    width: 18px;
-    height: 18px;
-  }
 
-  .orbit-icon.git {
-    width: 20px;
-    height: 20px;
-  }
 
-  .moon-orbit {
-    width: 40px;
-    height: 40px;
-  }
 
-  .orbit-icon.moon {
-    width: 7px;
-    height: 7px;
-    top: -3.5px;
-  }
 
   .nav-container {
     padding: 12px 15px;
@@ -787,7 +706,7 @@ body::after {
 
 .projects-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr));
   gap: 40px;
   margin-top: 60px;
 }
@@ -1119,3 +1038,63 @@ body::after {
   }
 }
 
+
+/* ===== PERBAIKAN UI ===== */
+.logo { white-space: nowrap; font-size: 1.3rem; }
+
+.nav-link { padding: 4px 0; }
+
+.social-icon { display: inline-flex; align-items: center; justify-content: center; }
+
+.social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-social .social-link { background: rgba(0, 0, 0, 0.4); }
+
+.hero-title { min-height: 1.2em; }
+
+.glow-genz-button { z-index: 0; font-size: 16px; }
+.glow-genz-button::before { z-index: -1; left: 0; }
+
+.project-card {
+  display: flex;
+  flex-direction: column;
+}
+.project-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.project-links { margin-top: auto; flex-wrap: wrap; }
+.project-link { display: inline-block; }
+
+.skill-tag { line-height: 1.4; }
+.code-animation { max-width: 100%; overflow-x: auto; }
+
+.contact-form .glow-genz-button { width: 100%; }
+
+.avatar-container { max-width: 100%; }
+
+@media (max-width: 1024px) {
+  .hero { padding-top: 100px; }
+  .about-visual { order: -1; }
+}
+
+@media (max-width: 768px) {
+  .logo { font-size: 1.1rem; }
+  .nav-social { display: none; }
+  .nav-menu { top: 56px; align-items: center; gap: 20px; }
+  .section { padding: 70px 0 40px; }
+  .orbit-icon { width: 32px; height: 32px; margin: -16px 0 0 -16px; padding: 4px; }
+  .hero-buttons { width: 100%; }
+  .hero-buttons .glow-genz-button { width: 100%; max-width: 320px; }
+}
+
+@media (max-width: 640px) {
+  .section-title { font-size: 1.7rem; }
+  .code-animation { font-size: 0.85rem; padding: 20px; }
+  .project-image img { height: 170px; }
+}

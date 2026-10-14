@@ -98,7 +98,11 @@ function initOrbitAnimations() {
 
   planets.forEach((planet, index) => {
     const startAngle = Math.random() * 360;
-    const radius = 120 + index * 40;
+    const container = planet.parentElement;
+    const maxRadius = container.clientWidth / 2 - planet.offsetWidth / 2 - 4;
+    const minRadius = (container.querySelector(".sun-core").offsetWidth / 2) + planet.offsetWidth;
+    const step = (maxRadius - minRadius) / Math.max(planets.length - 1, 1);
+    const radius = minRadius + index * step;
     const duration = 15 + Math.random() * 15;
     const direction = Math.random() > 0.5 ? "normal" : "reverse";
 
