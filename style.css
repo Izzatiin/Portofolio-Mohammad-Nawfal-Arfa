@@ -348,7 +348,7 @@ body::after {
   color: var(--text);
   cursor: pointer;
   transition: all 0.3s ease;
-  transform-origin: 0 0;
+  transform-origin: center;
 }
 
 .orbit-icon img {
@@ -1097,4 +1097,10 @@ body::after {
   .section-title { font-size: 1.7rem; }
   .code-animation { font-size: 0.85rem; padding: 20px; }
   .project-image img { height: 170px; }
+}
+
+.section, .hero { overflow-x: clip; }
+
+@media (max-width: 640px) {
+  .sun-core { width: 90px; height: 90px; }
 }
