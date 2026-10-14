@@ -17,6 +17,7 @@ const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 // state modul (dideklarasikan di atas karena dunia di-boot sebelum fungsi-fungsi di bawah)
 let uiState = null;
 let emailjsPromise = null;
+let worldReady = false; // input dunia 3D baru aktif setelah semuanya selesai dibangun
 const IS_TOUCH = matchMedia("(pointer: coarse)").matches;
 // Panel jadi "bottom sheet" di layar sempit atau HP landscape (harus sama dengan CSS)
 const SHEET_MQ = matchMedia("(max-width: 720px), (pointer: coarse) and (max-height: 500px)");
@@ -212,8 +213,13 @@ function showFallback(message) {
 
 window.__worldBooted = true;
 if (body.classList.contains("boot-failed")) {
-  // jaring pengaman di index.html sudah aktif (modul datang terlambat); biarkan saja
-} else if (!renderer) {
+  // Modul datang terlambat (koneksi lambat): matikan jaring pengaman, lalu bangun dunianya seperti biasa
+  window.__fallbackActive = false;
+  body.classList.remove("no-webgl", "boot-failed");
+  $$(".webgl-note").forEach((n) => n.remove());
+  $$(".panel").forEach((p) => (p.hidden = true));
+}
+if (!renderer) {
   showFallback("Browser ini belum mendukung WebGL, jadi dunia 3D-nya tidak bisa tampil.");
 } else {
   try {
@@ -363,6 +369,9 @@ function initWorld() {
   const texFilm = loadTex("assets/simpang-kisah.jpg");
   const texWeb = loadTex("assets/web-pertama.jpg");
   const texPhoto = loadTex("assets/foto-nawfal.jpg");
+  // foto persegi di bingkai 0.62x0.68: potong sisi kiri-kanan supaya tidak gepeng
+  texPhoto.repeat.set(0.62 / 0.68, 1);
+  texPhoto.offset.set((1 - 0.62 / 0.68) / 2, 0);
 
   /* ===================== PLANET ===================== */
   const planetGeo = new THREE.IcosahedronGeometry(1, 22);
@@ -531,7 +540,7 @@ function initWorld() {
     g.add(box(0.16, 1.6, 1.0, teal, -1.27, 0.16, -0.5));
     g.add(box(0.16, 1.6, 1.0, teal, 1.27, 0.16, -0.5));
     const roof = box(3.0, 0.12, 2.5, "#3f7d6b", 0, 0, 0);
-    roof.position.set(0, 1.7, -0.15);
+    roof.position.set(0, 1.73, -0.15);
     roof.rotation.x = 0.078;
     g.add(roof);
     for (const x of [-1.27, 1.27]) g.add(box(0.12, 1.45, 0.12, wood, x, 0.16, 0.95));
@@ -591,6 +600,7 @@ function initWorld() {
       const reel = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.06, 10), "#4a4a4a");
       reel.rotation.z = Math.PI / 2;
       reel.position.set(0, 1.68, z);
+      reel.userData.dynamic = true;
       cam.add(reel);
       reels.push(reel);
     }
@@ -703,6 +713,7 @@ function initWorld() {
     mb.add(top);
     mb.add(box(0.3, 0.05, 0.02, "#2b2b2b", 0, 1.0, 0.235));
     const flag = new THREE.Group();
+    flag.userData.dynamic = true;
     flag.add(box(0.04, 0.4, 0.04, "#c0392b", 0, 0, 0));
     flag.add(box(0.04, 0.14, 0.18, "#c0392b", 0, 0.26, 0.08));
     flag.position.set(0.3, 0.85, 0);
@@ -721,6 +732,7 @@ function initWorld() {
     const plane = new THREE.Mesh(pg, new THREE.MeshStandardMaterial({ color: "#fffaf0", side: THREE.DoubleSide, flatShading: true }));
     plane.castShadow = true;
     const orbit = new THREE.Group();
+    orbit.userData.dynamic = true;
     orbit.add(plane);
     plane.position.set(1.6, 0, 0);
     orbit.position.y = 2.6;
@@ -736,6 +748,61 @@ function initWorld() {
     g.add(box(0.3, 0.22, 0.3, "#d6aa6e", -1.5, py + 0.3, 0.9));
     g.userData.props.push([-1.52, 0.9, 0.24]);
     return g;
+  }
+
+  // Gabungkan semua bagian statis (tanpa tekstur/animasi) dalam satu grup menjadi satu mesh
+  // berwarna per-vertex: ratusan draw call jadi beberapa saja, jauh lebih ringan di HP.
+  const _inv = new THREE.Matrix4();
+  const _rel = new THREE.Matrix4();
+  const mergedMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 });
+  function mergeStatic(group) {
+    group.updateMatrixWorld(true);
+    _inv.copy(group.matrixWorld).invert();
+    const parts = [];
+    group.traverse((o) => {
+      if (!o.isMesh) return;
+      for (let p = o; p && p !== group; p = p.parent) if (p.userData.dynamic) return;
+      const m = o.material;
+      if (!m.isMeshStandardMaterial || m.map || m.transparent || m.side !== THREE.FrontSide) return;
+      if (m.emissive && m.emissive.getHex() !== 0) return;
+      parts.push(o);
+    });
+    if (parts.length < 2) return;
+    const geos = parts.map((o) => {
+      const g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone();
+      g.applyMatrix4(_rel.multiplyMatrices(_inv, o.matrixWorld));
+      return { g, color: o.material.color };
+    });
+    const total = geos.reduce((n, { g }) => n + g.attributes.position.count, 0);
+    const pos = new Float32Array(total * 3);
+    const nor = new Float32Array(total * 3);
+    const col = new Float32Array(total * 3);
+    let off = 0;
+    for (const { g, color } of geos) {
+      const n = g.attributes.position.count;
+      pos.set(g.attributes.position.array, off * 3);
+      if (g.attributes.normal) nor.set(g.attributes.normal.array, off * 3);
+      for (let i = 0; i < n; i++) {
+        col[(off + i) * 3] = color.r;
+        col[(off + i) * 3 + 1] = color.g;
+        col[(off + i) * 3 + 2] = color.b;
+      }
+      off += n;
+      g.dispose();
+    }
+    const merged = new THREE.BufferGeometry();
+    merged.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    merged.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
+    merged.setAttribute("color", new THREE.BufferAttribute(col, 3));
+    const mm = new THREE.Mesh(merged, mergedMat);
+    mm.castShadow = true;
+    mm.receiveShadow = true;
+    mm.userData.station = group.userData.station;
+    for (const o of parts) {
+      o.parent.remove(o);
+      o.geometry.dispose();
+    }
+    group.add(mm);
   }
 
   // Bangunan yang menghalangi pandangan ke karakter dibuat transparan sementara
@@ -758,6 +825,7 @@ function initWorld() {
     placeOnSurface(g, s.dir, s.forward, -0.02);
     s.group = g;
     pickables.push(g);
+    mergeStatic(g);
     makeFadeable(g);
     colliders.push({ dir: s.dir, r: s.radius });
     g.updateMatrixWorld(true);
@@ -770,12 +838,14 @@ function initWorld() {
     const sd = moveAlong(moveAlong(s.dir, s.forward, 0.165), side, 0.085);
     sb.traverse((o) => (o.userData.station = s.id));
     placeOnSurface(sb, sd, s.forward, -0.02);
+    mergeStatic(sb);
     pickables.push(sb);
     s.signDir = sd;
     colliders.push({ dir: sd, r: 0.03 });
   }
 
   // Tiang penunjuk arah di alun-alun
+  let signpost = null;
   {
     const post = new THREE.Group();
     post.add(cyl(0.07, 0.08, 2.65, 6, "#7a4a22"));
@@ -807,7 +877,9 @@ function initWorld() {
     });
     placeOnSurface(post, POLE, new THREE.Vector3(0, 0, 1), -0.05);
     colliders.push({ dir: POLE, r: 0.02 });
+    mergeStatic(post);
     makeFadeable(post);
+    signpost = post;
   }
 
   // Api unggun rahasia di balik planet
@@ -844,6 +916,7 @@ function initWorld() {
       camp.add(bench);
     }
     placeOnSurface(camp, CAMP.dir, tangentToward(CAMP.dir, POLE), -0.03);
+    mergeStatic(camp);
     colliders.push({ dir: CAMP.dir, r: 0.05 });
     camp.updateMatrixWorld(true);
     for (const [x, z] of [[0.25, -1.1], [0.75, -1.1], [0.25, 1.1], [0.75, 1.1]]) {
@@ -989,7 +1062,10 @@ function initWorld() {
     const n = 3 + Math.floor(rand() * 3);
     for (let k = 0; k < n; k++) {
       const p = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7 + rand() * 0.6, 0), cm);
-      p.position.set((k - n / 2) * 0.85, rand() * 0.4, (rand() - 0.5) * 0.6);
+      // gumpalan rapat tanpa sumbu panjang, supaya dari sudut mana pun tidak terlihat seperti tiang
+      const ca = k * 2.4;
+      const cr = k ? 0.6 : 0;
+      p.position.set(Math.cos(ca) * cr, rand() * 0.3, Math.sin(ca) * cr);
       p.scale.set(1.15, 0.7, 1);
       c.add(p);
     }
@@ -1097,6 +1173,7 @@ function initWorld() {
   };
 
   addEventListener("keydown", (e) => {
+    if (!worldReady) return;
     if (e.code === "Escape") {
       if (ui.openId) {
         ui.closePanel();
@@ -1202,6 +1279,7 @@ function initWorld() {
   const ndc = new THREE.Vector2();
 
   canvas.addEventListener("pointerdown", (e) => {
+    if (!worldReady) return;
     canvas.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dragMoved = 0;
@@ -1257,6 +1335,12 @@ function initWorld() {
   );
 
   function pickAt(e) {
+    // label bangunan hanya visual (agar drag kamera tetap jalan); klik dicek di sini
+    for (const l of labelItems) {
+      if (!l.shown) continue;
+      const r = l.el.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) return l.s.id;
+    }
     ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
     raycaster.setFromCamera(ndc, camera);
     const hits = raycaster.intersectObjects([planet, ...pickables], true);
@@ -1278,15 +1362,9 @@ function initWorld() {
   /* ===================== LABEL HTML ===================== */
   const labelsEl = $("#labels");
   const labelItems = STATIONS.map((s) => {
-    const el = document.createElement("button");
-    el.type = "button";
+    const el = document.createElement("div");
     el.className = "place-label";
-    el.tabIndex = -1; // menu atas sudah bisa diakses keyboard
     el.textContent = s.label;
-    el.addEventListener("click", () => {
-      if (mode !== "transition") ui.openPanel(s.id, { auto: false });
-      el.blur();
-    });
     labelsEl.appendChild(el);
     const tall = s.id === "work" ? 4.0 : 3.0;
     const pos = s.dir.clone().multiplyScalar(R + tall);
@@ -1353,7 +1431,7 @@ function initWorld() {
     const y1 = H - 12;
     if (introBeside()) {
       x0 = layout.introRight + 16;
-      y0 = layout.navBottom + 36;
+      y0 = layout.navBottom + 64;
     }
     let diam = Math.min(x1 - x0, y1 - y0);
     diam = Math.max(diam, Math.min(W, H) * 0.42); // jangan sampai terlalu kecil
@@ -1378,6 +1456,7 @@ function initWorld() {
     _dir.copy(out.pos).normalize().negate();
     _su.copy(UP).addScaledVector(_dir, -UP.dot(_dir)).normalize();
     _right.crossVectors(_dir, _su);
+    out.up.copy(_su);
     out.target
       .copy(_su)
       .multiplyScalar(D * Math.tan(shiftY))
@@ -1426,6 +1505,7 @@ function initWorld() {
   const hideTouchHint = () => touchHint.classList.add("is-gone");
 
   function startPlaying() {
+    if (!worldReady) return;
     if (mode === "transition") {
       trans.queued = trans.next === "play" ? null : "play";
       return;
@@ -1529,8 +1609,10 @@ function initWorld() {
             const away = tangentToward(c.dir, nd);
             // menabrak tepat di tengah: belokkan sedikit supaya bisa menyusur, tidak tersangkut
             if (away.dot(stepDir) < -0.9) {
+              // geser menyusur sejauh satu langkah saja (tidak melompat)
               const onRight = _cross.crossVectors(stepDir, up).dot(c.dir) > 0;
-              away.applyAxisAngle(c.dir, onRight ? -0.6 : 0.6);
+              const slide = Math.min(0.6, (player.speed * dt) / R / Math.sin(lim));
+              away.applyAxisAngle(c.dir, onRight ? -slide : slide);
             }
             nd = moveAlong(c.dir, away, lim + 1e-4);
           }
@@ -1627,6 +1709,13 @@ function initWorld() {
         while (o && !o.userData.fade) o = o.parent;
         if (o) occHits.add(o);
       }
+      // tiang penunjuk yang melintang dekat kamera juga dipudarkan
+      if (signpost && !occHits.has(signpost)) {
+        _occT.copy(signpost.position).addScaledVector(POLE, 1.4);
+        const t = clamp(_occT.clone().sub(camera.position).dot(_occD), 0, dist);
+        const closest = _cw.copy(camera.position).addScaledVector(_occD, t);
+        if (t < dist - 1.2 && closest.distanceTo(_occT) < 1.3) occHits.add(signpost);
+      }
     }
     for (const g of fadeables) {
       const f = g.userData.fade;
@@ -1650,10 +1739,22 @@ function initWorld() {
   function updateClouds(dt) {
     clouds.rotation.y += dt * 0.02;
     clouds.rotation.x = Math.sin(elapsed * 0.05) * 0.1;
+    const introText = mode !== "play" && !introBeside();
+    // saat bermain, awan yang berada di antara kamera dan karakter disembunyikan
+    const heroDist = mode === "play" ? camera.position.distanceTo(player.pos) : Infinity;
     for (const c of cloudList) {
-      const d = c.getWorldPosition(_cw).distanceTo(camera.position);
-      c.userData.mat.opacity = smooth(2.5, 7, d);
-      c.visible = d > 1.5;
+      c.getWorldPosition(_cw);
+      const d = _cw.distanceTo(camera.position);
+      let op = smooth(2.5, 7, d);
+      if (heroDist !== Infinity) op = Math.min(op, smooth(heroDist - 1, heroDist + 3, d));
+      if (introText) {
+        // jangan sampai awan menutupi judul/tombol intro
+        _cw.project(camera);
+        const sy = (-_cw.y * 0.5 + 0.5) * innerHeight;
+        op = Math.min(op, smooth(layout.introBottom, layout.introBottom + 60, sy));
+      }
+      c.userData.mat.opacity = op;
+      c.visible = d > 1.5 && op > 0.01;
     }
   }
 
@@ -1666,6 +1767,7 @@ function initWorld() {
     if (Math.abs(viewOff - target) < 0.5) viewOff = target;
     if (viewOff > 0.5) camera.setViewOffset(innerWidth, innerHeight, viewOff, 0, innerWidth, innerHeight);
     else camera.clearViewOffset();
+    body.style.setProperty("--view-off", `${Math.round(viewOff)}px`);
   }
 
   const clock = new THREE.Clock();
@@ -1799,6 +1901,7 @@ function initWorld() {
     camera,
   };
 
+  worldReady = true;
   requestAnimationFrame(frame);
 }
 
@@ -1859,7 +1962,7 @@ function initUI({ world = false } = {}) {
     sync() {
       const sheet = !!state.openId && isNarrow() && !state.openAuto;
       backdrop.hidden = !sheet;
-      if (state.openId) panels[state.openId].setAttribute("aria-modal", String(sheet));
+
     },
     openPanelWidth() {
       return state.openId ? panels[state.openId].offsetWidth + 16 : 0;
@@ -1942,12 +2045,19 @@ function loadEmailJS() {
     const sc = document.createElement("script");
     sc.src = "https://cdn.emailjs.com/dist/email.min.js";
     sc.async = true;
-    sc.onload = () => (window.emailjs ? resolve(window.emailjs) : reject(new Error("emailjs")));
-    sc.onerror = () => {
+    const giveUp = () => {
+      clearTimeout(timer);
       emailjsPromise = null;
       sc.remove();
       reject(new Error("emailjs"));
     };
+    const timer = setTimeout(giveUp, 8000); // CDN macet: jangan biarkan tombol "Mengirim…" selamanya
+    sc.onload = () => {
+      clearTimeout(timer);
+      if (window.emailjs) resolve(window.emailjs);
+      else giveUp();
+    };
+    sc.onerror = giveUp;
     document.head.appendChild(sc);
   });
   return emailjsPromise;

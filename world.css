@@ -211,7 +211,7 @@ body.is-playing .intro {
   font-size: 0.82rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--brown);
+  color: #5e3816;
   margin-bottom: 4px;
 }
 
@@ -479,6 +479,25 @@ body.is-touch .hud-touch-hint {
   opacity: 0;
 }
 
+/* Petunjuk sentuh disembunyikan selama tombol "Masuk" tampil */
+.hud-prompt:not([hidden]) ~ .hud-touch-hint {
+  opacity: 0;
+}
+
+/* Saat panel samping terbuka (tablet), elemen tengah/kanan ikut bergeser */
+.hud-prompt,
+.hud-touch-hint {
+  margin-left: calc(-1 * var(--view-off, 0px));
+}
+
+.jump-btn {
+  transition: right 0.3s ease;
+}
+
+body.is-touch .jump-btn {
+  right: calc(max(20px, env(safe-area-inset-right)) + 2 * var(--view-off, 0px));
+}
+
 /* ===== Label bangunan ===== */
 .labels {
   position: fixed;
@@ -491,9 +510,6 @@ body.is-touch .hud-touch-hint {
   position: absolute;
   left: 0;
   top: 0;
-  font: inherit;
-  cursor: pointer;
-  pointer-events: auto;
   padding: 3px 9px;
   background: var(--paper);
   color: var(--brown);
@@ -509,13 +525,8 @@ body.is-touch .hud-touch-hint {
   will-change: transform;
 }
 
-.place-label:hover {
-  background: #fffaf0;
-}
-
 .place-label.is-hidden {
   opacity: 0;
-  pointer-events: none;
 }
 
 /* ===== Kontrol sentuh ===== */
@@ -1013,10 +1024,18 @@ body.is-touch .hud-prompt kbd {
 
 /* ===== Fallback tanpa WebGL ===== */
 body.no-webgl #world,
+body.no-webgl #labels,
+body.no-webgl .touch,
 body.no-webgl .hud,
 body.no-webgl #explore-btn,
 body.no-webgl .intro-hint {
   display: none;
+}
+
+body.no-webgl .intro {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
 }
 
 .webgl-note {
@@ -1039,6 +1058,13 @@ body.no-webgl .intro-hint {
   border-radius: 8px;
   text-align: center;
   font-weight: 700;
+}
+
+/* Jendela 721–900px: menu di tengah sudah lebar, jadi tombol pojok turun ke bawah menu */
+@media (max-width: 900px) {
+  .hud-corner {
+    top: calc(max(14px, env(safe-area-inset-top)) + 50px);
+  }
 }
 
 /* ===== Responsif ===== */
@@ -1068,7 +1094,7 @@ body.no-webgl .intro-hint {
   }
 
   .hud-corner {
-    top: calc(max(14px, env(safe-area-inset-top)) + 44px);
+    top: calc(max(14px, env(safe-area-inset-top)) + 52px);
     left: auto;
     right: max(12px, env(safe-area-inset-right));
     flex-direction: column;
@@ -1143,6 +1169,7 @@ body.no-webgl .intro-hint {
 
   body.is-touch .hud-touch-hint {
     bottom: calc(max(24px, env(safe-area-inset-bottom)) + 60px);
+    max-width: calc(100vw - 280px);
   }
 
   .joystick {
@@ -1151,18 +1178,22 @@ body.no-webgl .intro-hint {
   }
 }
 
-/* Area sentuh yang nyaman di HP */
-body.is-touch .pill {
-  min-height: 36px;
+/* Area sentuh yang nyaman di HP (≥ 44px) */
+body.is-touch .pill,
+body.is-touch .hud-home,
+body.is-touch .hud-classic,
+body.is-touch .socials a,
+body.is-touch .letter .btn-paper,
+body.is-touch .links .btn-paper {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
 }
 
 body.is-touch .panel-close {
-  width: 40px;
-  height: 40px;
-}
-
-body.is-touch .hud-home {
-  min-height: 36px;
+  width: 44px;
+  height: 44px;
 }
 
 @keyframes sheetIn {

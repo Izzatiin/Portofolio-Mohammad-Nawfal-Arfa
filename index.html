@@ -270,7 +270,7 @@
           <a href="https://www.instagram.com/izzatiin_/" target="_blank" rel="noopener noreferrer">Instagram</a>
           <a href="https://www.facebook.com/Nawfal%20Arfa" target="_blank" rel="noopener noreferrer">Facebook</a>
         </div>
-        <form id="contact-form" class="letter">
+        <form id="contact-form" class="letter" action="mailto:nawfalarfa14@gmail.com" method="post" enctype="text/plain">
           <label>Nama<input type="text" name="user_name" required autocomplete="name" /></label>
           <label>Email<input type="email" name="user_email" required autocomplete="email" /></label>
           <label>Pesan<textarea name="message" rows="4" required></textarea></label>
@@ -288,31 +288,43 @@
     </noscript>
 
     <script>
-      // Jaring pengaman: kalau dunia 3D gagal dimuat, tetap tampilkan konten.
-      setTimeout(function () {
-        if (window.__worldBooted) return;
+      // Jaring pengaman: kalau dunia 3D gagal dimuat, konten tetap bisa dibaca lewat menu.
+      window.__bootFail = function () {
+        if (window.__worldBooted || window.__fallbackActive) return;
+        window.__fallbackActive = true;
         document.getElementById("loader").classList.add("is-done");
         document.body.classList.remove("is-loading");
         document.body.classList.add("no-webgl", "boot-failed");
         var note = document.createElement("p");
         note.className = "webgl-note";
         note.innerHTML =
-          'Dunia 3D gagal dimuat. Pilih menu di atas untuk membaca, atau buka <a href="classic.html">versi klasik</a>.';
+          'Dunia 3D belum bisa dimuat. Pilih menu di atas untuk membaca, atau buka <a href="classic.html">versi klasik</a>.';
         document.getElementById("intro").appendChild(note);
         var open = null;
-        function show(id) {
+        function setOpen(id) {
           if (open) open.hidden = true;
-          open = document.getElementById("panel-" + id);
+          open = id ? document.getElementById("panel-" + id) : null;
           if (open) open.hidden = false;
+          document.querySelectorAll(".pill").forEach(function (b) {
+            b.setAttribute("aria-expanded", String(b.dataset.go === id));
+          });
         }
         document.querySelectorAll(".pill").forEach(function (b) {
-          b.addEventListener("click", function () { show(b.dataset.go); });
+          b.addEventListener("click", function () {
+            if (window.__fallbackActive) setOpen(b.dataset.go);
+          });
         });
         document.querySelectorAll(".panel-close").forEach(function (b) {
-          b.addEventListener("click", function () { if (open) open.hidden = true; open = null; });
+          b.addEventListener("click", function () {
+            if (window.__fallbackActive) setOpen(null);
+          });
         });
-      }, 12000);
+        addEventListener("keydown", function (e) {
+          if (window.__fallbackActive && e.key === "Escape") setOpen(null);
+        });
+      };
+      setTimeout(window.__bootFail, 12000);
     </script>
-    <script type="module" src="world.js"></script>
+    <script type="module" src="world.js" onerror="window.__bootFail()"></script>
   </body>
 </html>
