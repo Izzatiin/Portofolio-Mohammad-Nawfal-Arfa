@@ -18,16 +18,24 @@ mampir ke tiap bangunan, dan membaca cerita, keterampilan, karya, serta kontak s
 | Zoom | Scroll | Cubit (pinch) |
 | Masuk bangunan | Dekati (panel terbuka otomatis) atau `E` | Ketuk tombol "Masuk …" |
 
-Menu di atas (**About Me, Skills, My Work, Contact**) langsung membuka isi tanpa perlu bermain.
+Menu di atas (**About Me, Skills, My Work, IZZA, Contact**) langsung membuka isi tanpa perlu bermain.
 
 | Bangunan | Isi |
 | --- | --- |
 | 🏠 Rumah Nawfal | About Me |
 | 🛠️ Bengkel Kreatif | Skills |
-| 🎬 Bioskop Mini | My Work (film *Simpang Kisah* & web pertama) |
+| 🔭 Observatorium IZZA | **Proyek terbaru:** IZZA, asisten AI lokal dari laptop ke ponsel (video promo diputar di ponsel raksasa) |
+| 🎬 Bioskop Mini | My Work (IZZA, film *Simpang Kisah* & web pertama) |
 | 📮 Kantor Pos | Contact + form pesan |
 
 Ada juga satu tempat rahasia di sisi lain planet. 🔥
+
+### 🤖 Tentang IZZA
+
+[IZZA](https://github.com/Izzatiin/izza) adalah asisten AI lokal buatan saya: berjalan tanpa internet,
+gratis, dan data tidak pernah meninggalkan perangkat. Berawal sebagai aplikasi web di laptop
+(Python + Flask, model GGUF lewat LM Studio / llama.cpp, 450 uji otomatis), kini hadir di ponsel
+dengan 16 model AI.
 
 ---
 
@@ -46,6 +54,7 @@ Ada juga satu tempat rahasia di sisi lain planet. 🔥
 * `world.css` — gaya tampilan (tema kertas krem & langit biru)
 * `vendor/three.module.min.js` — library Three.js
 * `assets/` — gambar yang sudah dikompres untuk versi 3D
+* `assets/izza/` — logo, sampul, dan video promo IZZA (MP4 + WebM)
 * `classic.html`, `style.css`, `script.js` — versi klasik (portofolio lama, satu halaman)
 * `Cleveroad.jpg`, `pf.png`, `img.jpg`, `icon.jpg` — gambar asli
 

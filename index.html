@@ -9,7 +9,7 @@
     <title>Nawfal's World — Mohammad Nawfal Arfa</title>
     <meta
       name="description"
-      content="Portofolio 3D interaktif Mohammad Nawfal Arfa — mahasiswa Linguistik Indonesia, video editor, dan content creator."
+      content="Portofolio 3D interaktif Mohammad Nawfal Arfa — mahasiswa Linguistik Indonesia, video editor, content creator, dan pembuat IZZA, asisten AI lokal."
     />
     <meta name="theme-color" content="#9fd0ec" />
     <meta property="og:type" content="website" />
@@ -55,6 +55,7 @@
         <button class="pill" data-go="about" aria-controls="panel-about" aria-expanded="false">About Me <span aria-hidden="true">›</span></button>
         <button class="pill" data-go="skills" aria-controls="panel-skills" aria-expanded="false">Skills <span aria-hidden="true">›</span></button>
         <button class="pill" data-go="work" aria-controls="panel-work" aria-expanded="false">My Work <span aria-hidden="true">›</span></button>
+        <button class="pill pill-new" data-go="izza" aria-controls="panel-izza" aria-expanded="false">IZZA <span class="pill-badge">baru</span></button>
         <button class="pill" data-go="contact" aria-controls="panel-contact" aria-expanded="false">Contact <span aria-hidden="true">›</span></button>
       </nav>
     </header>
@@ -153,8 +154,9 @@
         <h3 class="chip-title">Fokusku</h3>
         <p>
           Menciptakan karya yang inovatif dengan memanfaatkan alat-alat
-          teknologi terkini — dari cerita visual sampai situs web pertama yang
-          kubangun sendiri.
+          teknologi terkini — dari cerita visual, situs web pertama yang
+          kubangun sendiri, sampai <strong>IZZA</strong>, asisten AI lokal yang
+          kini berjalan di ponsel.
         </p>
         <h3 class="chip-title">Kenapa sebuah planet kecil?</h3>
         <p>
@@ -193,7 +195,8 @@
           <li><span class="skill-ico" aria-hidden="true">🎨</span><div><strong>Desain Kreatif</strong><span>Canva</span></div></li>
           <li><span class="skill-ico" aria-hidden="true">🗣️</span><div><strong>Komunikasi &amp; Analisis Bahasa</strong><span>Latar Linguistik Indonesia</span></div></li>
           <li><span class="skill-ico" aria-hidden="true">📱</span><div><strong>Teknologi Digital &amp; Gadget</strong><span>Selalu penasaran dengan yang baru</span></div></li>
-          <li><span class="skill-ico" aria-hidden="true">💻</span><div><strong>Self-Taught Coding (Basic)</strong><span>HTML &amp; CSS</span></div></li>
+          <li><span class="skill-ico" aria-hidden="true">🤖</span><div><strong>AI Lokal &amp; LLM</strong><span>Membangun IZZA: model GGUF, router model, dari laptop ke ponsel</span></div></li>
+          <li><span class="skill-ico" aria-hidden="true">💻</span><div><strong>Self-Taught Coding</strong><span>HTML, CSS &amp; Python (Flask)</span></div></li>
         </ul>
       </div>
     </article>
@@ -210,8 +213,23 @@
       <div class="panel-scroll">
         <p class="panel-kicker">Bioskop Mini · My Work</p>
         <h2 id="work-title">Karya yang sedang diputar</h2>
+        <div class="project project-featured">
+          <span class="badge-new">✦ Proyek terbaru</span>
+          <img src="assets/izza/izza-sampul.jpg" alt="Sampul IZZA: AI pribadimu, di dalam ponsel" loading="lazy" />
+          <h3>IZZA — AI Lokal, dari Laptop ke Ponsel</h3>
+          <p>
+            Asisten AI buatanku yang berjalan sepenuhnya di perangkat sendiri:
+            tanpa internet, gratis, dan datanya tidak pernah keluar. Berawal di
+            laptop, kini hadir sebagai aplikasi ponsel dengan 16 model AI.
+          </p>
+          <div class="tags"><span>Python</span><span>Flask</span><span>GGUF / llama.cpp</span><span>Android</span></div>
+          <div class="links">
+            <button class="btn-paper" type="button" data-open="izza">Lihat IZZA ✦</button>
+            <a class="btn-paper ghost" href="https://github.com/Izzatiin/izza" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+          </div>
+        </div>
         <div class="project">
-          <img src="assets/simpang-kisah.jpg" alt="Cuplikan film pendek Simpang Kisah" loading="lazy" class="ratio-video" />
+          <img src="assets/simpang-kisah.jpg" alt="Poster film pendek Simpang Kisah: bangku taman kosong di persimpangan jalan saat senja" loading="lazy" />
           <h3>Simpang Kisah — Film Pendek</h3>
           <p>
             Karya naratif audio-visual yang mengeksplorasi dinamika hubungan dan
@@ -239,6 +257,81 @@
             <a class="btn-paper ghost" href="https://github.com/Izzatiin" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
           </div>
         </div>
+      </div>
+    </article>
+
+    <article
+      class="panel panel-wide panel-izza"
+      id="panel-izza"
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="izza-title"
+      hidden
+    >
+      <button class="panel-close" type="button" aria-label="Tutup">✕</button>
+      <div class="panel-scroll">
+        <p class="panel-kicker">Observatorium IZZA · Proyek terbaru</p>
+        <div class="izza-hero">
+          <img src="assets/izza/izza-logo.png" alt="Logo IZZA bersama maskotnya, Zet" class="izza-logo" width="320" height="96" />
+          <p class="izza-tagline">AI lokal di ponselmu.<span>Gratis · Privat · Tanpa internet</span></p>
+        </div>
+        <h2 id="izza-title">IZZA, asisten AI yang tinggal di perangkatmu sendiri</h2>
+        <p class="lead">
+          Proyek terbesarku sejauh ini. IZZA berawal sebagai asisten AI di satu
+          laptop: modelnya lokal, ingatannya lokal, dan obrolannya tidak pernah
+          meninggalkan mesin. Sekarang IZZA hadir di ponsel, dengan model AI yang
+          berjalan langsung di perangkat, tanpa internet, dan data yang tetap di
+          ponsel.
+        </p>
+        <div class="izza-videos">
+          <figure>
+            <video controls playsinline preload="none" poster="assets/izza/izza-promo-1.jpg" aria-label="Video promo IZZA pertama">
+              <source src="assets/izza/izza-promo-1.mp4" type="video/mp4" />
+              <source src="assets/izza/izza-promo-1.webm" type="video/webm" />
+            </video>
+            <figcaption>Video promo #1</figcaption>
+          </figure>
+          <figure>
+            <video controls playsinline preload="none" poster="assets/izza/izza-promo-2.jpg" aria-label="Video promo IZZA kedua">
+              <source src="assets/izza/izza-promo-2.mp4" type="video/mp4" />
+              <source src="assets/izza/izza-promo-2.webm" type="video/webm" />
+            </video>
+            <figcaption>Video promo #2</figcaption>
+          </figure>
+        </div>
+
+        <h3 class="chip-title">Versi ponsel</h3>
+        <ul class="feature-grid">
+          <li><span aria-hidden="true">💬</span><strong>Ngobrol apa saja</strong>Tulis kode, cari ide, terjemahkan, ringkas teks.</li>
+          <li><span aria-hidden="true">🔎</span><strong>Cari di web</strong>Lengkap dengan sumbernya, dari Brave Search sampai GitHub.</li>
+          <li><span aria-hidden="true">🎮</span><strong>Minta game, langsung main</strong>IZZA membuat game HTML + JavaScript yang bisa dimainkan saat itu juga.</li>
+          <li><span aria-hidden="true">✉️</span><strong>Email pintar</strong>Membantu menandai email yang berbau penipuan.</li>
+          <li><span aria-hidden="true">🔭</span><strong>Peta langit</strong>Rasi bintang dan planet di atas kepalamu, bisa di-zoom sampai Saturnus.</li>
+          <li><span aria-hidden="true">🎣</span><strong>Taman &amp; mancing angkasa</strong>Mini-game santai: 100 joran dan 1.000 makhluk untuk dikoleksi.</li>
+        </ul>
+        <p class="model-row">
+          <strong>16 model AI</strong> bisa dipilih:
+          <span>Gemma 4</span><span>Qwen 3</span><span>Llama 3.2</span><span>Gemma 3n</span><span>DeepSeek R1</span><span>+ cari sendiri</span>
+        </p>
+
+        <h3 class="chip-title">Versi laptop, asal mulanya</h3>
+        <ul class="check-list">
+          <li><strong>Jalan tanpa internet.</strong> Model <code>.gguf</code> di laptop sendiri lewat LM Studio atau llama-server.</li>
+          <li><strong>Memilih otaknya sendiri.</strong> Router membaca pesan lalu memilih model yang cocok: penalar, model koding, atau model kecil untuk sapaan.</li>
+          <li><strong>Merencanakan sebelum mengerjakan.</strong> Menulis langkah, mengerjakannya, lalu memeriksa langkah yang terlewat.</li>
+          <li><strong>Selalu minta izin.</strong> Sebelum menulis berkas atau menjalankan perintah, IZZA berhenti dan menunggu persetujuan.</li>
+          <li><strong>Pembaruan yang bisa dibuktikan.</strong> Rilis bertanda tangan Ed25519; yang tidak cocok tidak dipasang.</li>
+          <li><strong>Dipakai bersama.</strong> Banyak akun, izin per kemampuan, folder data terpisah. Dipakai bertujuh lewat satu laptop.</li>
+          <li><strong>450 uji otomatis.</strong> Tiap uji mewakili bug yang pernah benar-benar terjadi.</li>
+        </ul>
+        <div class="tags"><span>Python</span><span>Flask</span><span>llama.cpp / GGUF</span><span>LM Studio</span><span>Android</span><span>AI lokal</span></div>
+        <div class="links">
+          <a class="btn-paper" href="https://github.com/Izzatiin/izza" target="_blank" rel="noopener noreferrer">Kode sumber di GitHub ↗</a>
+        </div>
+        <p class="fineprint">
+          Maskot IZZA bernama Zet: huruf Z yang terlipat menjadi penghuni kecil.
+          Kode versi laptop dirilis dengan lisensi AGPL-3.0.
+        </p>
       </div>
     </article>
 

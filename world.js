@@ -16,6 +16,8 @@ const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) 
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 // state modul (dideklarasikan di atas karena dunia di-boot sebelum fungsi-fungsi di bawah)
 let uiState = null;
+// video di panel berhenti saat panelnya ditutup, supaya suaranya tidak terus berbunyi
+const pauseMedia = (el) => el.querySelectorAll("video").forEach((v) => v.pause());
 let emailjsPromise = null;
 let worldReady = false; // input dunia 3D baru aktif setelah semuanya selesai dibangun
 const IS_TOUCH = matchMedia("(pointer: coarse)").matches;
@@ -91,6 +93,8 @@ const STATIONS = [
   { id: "about", name: "Rumah Nawfal", label: "About Me", polar: 0.6, az: BASE_AZ, radius: 0.125 },
   { id: "skills", name: "Bengkel Kreatif", label: "Skills", polar: 0.64, az: BASE_AZ + Math.PI / 2, radius: 0.12 },
   { id: "work", name: "Bioskop Mini", label: "My Work", polar: 0.64, az: BASE_AZ + Math.PI, radius: 0.14 },
+  // proyek terbaru: tepat di depan titik awal pemain
+  { id: "izza", name: "Observatorium IZZA", label: "IZZA", polar: 0.86, az: BASE_AZ + Math.PI * 0.75, radius: 0.13 },
   { id: "contact", name: "Kantor Pos", label: "Contact", polar: 0.6, az: BASE_AZ + Math.PI * 1.5, radius: 0.12 },
 ];
 for (const s of STATIONS) {
@@ -369,6 +373,8 @@ function initWorld() {
   const texFilm = loadTex("assets/simpang-kisah.jpg");
   const texWeb = loadTex("assets/web-pertama.jpg");
   const texPhoto = loadTex("assets/foto-nawfal.jpg");
+  const texIzzaScreen = loadTex("assets/izza/izza-layar.jpg");
+  const texIzzaLogo = loadTex("assets/izza/izza-logo.png");
   // foto persegi di bingkai 0.62x0.68: potong sisi kiri-kanan supaya tidak gepeng
   texPhoto.repeat.set(0.62 / 0.68, 1);
   texPhoto.offset.set((1 - 0.62 / 0.68) / 2, 0);
@@ -483,6 +489,25 @@ function initWorld() {
     const p = textPlane(text, w, h, { w: 512, h: Math.round((512 * h) / w) });
     p.position.set(0, postH - 0.05 + (h + 0.08) / 2, 0.035);
     g.add(p);
+    return g;
+  }
+
+  // Papan nama khusus IZZA: logo asli di atas papan gelap
+  function logoBoard() {
+    const g = new THREE.Group();
+    const w = 1.5;
+    const h = 0.45;
+    const postH = 0.8;
+    g.add(box(0.08, postH, 0.08, "#2a2530", -w / 2 + 0.12, 0, 0));
+    g.add(box(0.08, postH, 0.08, "#2a2530", w / 2 - 0.12, 0, 0));
+    g.add(box(w + 0.1, h + 0.1, 0.06, "#141015", 0, postH - 0.05, 0));
+    g.add(box(w + 0.1, 0.05, 0.065, "#e8702f", 0, postH - 0.05, 0));
+    const logo = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, w * (192 / 640)),
+      new THREE.MeshBasicMaterial({ map: texIzzaLogo, transparent: true }),
+    );
+    logo.position.set(0, postH - 0.05 + (h + 0.1) / 2, 0.035);
+    g.add(logo);
     return g;
   }
 
@@ -679,6 +704,132 @@ function initWorld() {
     return g;
   }
 
+  // Observatorium IZZA: kubah + teleskop, ponsel raksasa pemutar video promo, patung maskot Zet
+  let izzaScreen = null;
+  function buildObservatory() {
+    const g = new THREE.Group();
+    g.userData.props = [];
+    const cream = "#ece6da";
+    const white = "#f6f3ec";
+    const orange = "#e8702f";
+    const dark = "#1d1a20";
+    g.add(box(3.0, 0.42, 2.7, "#b9a98d", 0, -0.22, 0));
+    g.add(cyl(1.15, 1.2, 1.2, 14, cream, 0, 0.2, -0.15));
+    g.add(cyl(1.21, 1.21, 0.16, 14, orange, 0, 1.3, -0.15));
+    // kubah putih dengan celah gelap menghadap depan
+    g.add(mesh(new THREE.SphereGeometry(1.12, 14, 7, 0, Math.PI * 2, 0, Math.PI / 2), white, 0, 1.46, -0.15));
+    g.add(mesh(new THREE.SphereGeometry(1.135, 3, 7, Math.PI / 2 - 0.16, 0.32, 0, Math.PI / 2), dark, 0, 1.46, -0.15));
+    const scope = cyl(0.13, 0.17, 1.15, 8, "#3a3540");
+    scope.position.set(0, 1.95, 0.25);
+    scope.rotation.x = 0.85;
+    g.add(scope);
+    // pintu & jendela bulat
+    g.add(box(0.62, 0.95, 0.06, white, 0, 0.2, 1.03));
+    g.add(box(0.5, 0.86, 0.08, orange, 0, 0.2, 1.05));
+    g.add(box(0.06, 0.06, 0.04, "#fff3dc", 0.14, 0.62, 1.1));
+    for (const x of [-0.72, 0.72]) {
+      const win = cyl(0.17, 0.17, 0.06, 10, "#2c3a5c");
+      win.rotation.x = Math.PI / 2;
+      win.position.set(x, 0.85, 0.82);
+      win.rotation.y = Math.atan2(x, 0.97);
+      g.add(win);
+    }
+    // antena parabola di belakang
+    const dish = new THREE.Group();
+    dish.add(box(0.1, 0.9, 0.1, "#8a8a92", 0, 0, 0));
+    const bowl = mesh(new THREE.SphereGeometry(0.42, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2.6), "#d7d7dd");
+    bowl.rotation.x = Math.PI + 0.6;
+    bowl.position.set(0, 1.05, 0);
+    dish.add(bowl);
+    dish.position.set(1.45, groundY(1.45, -1.0), -1.0);
+    dish.rotation.y = 0.6;
+    g.add(dish);
+    g.userData.props.push([1.45, -1.0, 0.3]);
+    // lampu suar berkedip di puncak kubah
+    const beacon = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.08, 0),
+      new THREE.MeshStandardMaterial({ color: "#ffb07a", emissive: "#ff7a2f", emissiveIntensity: 1.5 }),
+    );
+    beacon.position.set(0, 2.62, -0.15);
+    g.add(beacon);
+    g.add(box(0.04, 0.1, 0.04, "#8a8a92", 0, 2.52, -0.15));
+    animated.push((t) => (beacon.material.emissiveIntensity = Math.sin(t * 3) > 0.3 ? 1.8 : 0.2));
+
+    // ponsel raksasa: layar menampilkan video promo saat pemain mendekat
+    const phone = new THREE.Group();
+    phone.add(box(0.5, 0.08, 0.36, "#2a2530", 0, 0, 0));
+    phone.add(box(0.1, 0.5, 0.1, "#2a2530", 0, 0.05, 0));
+    phone.add(box(1.22, 2.18, 0.14, "#141015", 0, 0.5, 0));
+    phone.add(box(0.26, 0.05, 0.02, "#2a2530", 0, 2.55, 0.075));
+    izzaScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.08, 1.92),
+      new THREE.MeshBasicMaterial({ map: texIzzaScreen, toneMapped: false }),
+    );
+    izzaScreen.position.set(0, 1.59, 0.073);
+    phone.add(izzaScreen);
+    phone.position.set(-2.05, groundY(-2.05, 0.45), 0.45);
+    phone.rotation.y = 0.42;
+    g.add(phone);
+    g.userData.props.push([-2.05, 0.45, 0.35]);
+
+    // patung Zet (huruf Z yang terlipat)
+    const zet = new THREE.Group();
+    zet.add(cyl(0.42, 0.48, 0.25, 10, "#cbbfa8"));
+    const body = new THREE.Group();
+    body.userData.dynamic = true;
+    body.add(box(0.72, 0.32, 0.5, cream, 0.05, 0.25, 0));
+    const torso = box(0.46, 0.62, 0.44, "#e2d9c7", 0, 0, 0);
+    torso.position.set(-0.08, 0.86, 0);
+    torso.rotation.z = 0.32;
+    body.add(torso);
+    body.add(box(0.1, 0.1, 0.02, orange, 0.02, 0.86, 0.23));
+    const arm = box(0.28, 0.14, 0.16, "#e2d9c7", 0, 0, 0);
+    arm.position.set(0.22, 0.62, 0.18);
+    arm.rotation.z = -0.4;
+    body.add(arm);
+    const head = new THREE.Group();
+    head.position.set(0.02, 1.38, 0);
+    head.add(box(0.8, 0.46, 0.52, "#f1ebde", 0, -0.23, 0));
+    head.add(box(0.07, 0.15, 0.02, "#141015", 0.06, -0.24, 0.265));
+    head.add(box(0.07, 0.15, 0.02, "#141015", 0.24, -0.24, 0.265));
+    body.add(head);
+    zet.add(body);
+    zet.position.set(1.85, groundY(1.85, 0.85), 0.85);
+    zet.rotation.y = -0.5;
+    g.add(zet);
+    g.userData.props.push([1.85, 0.85, 0.42]);
+    animated.push((t) => {
+      head.rotation.z = Math.sin(t * 1.6) * 0.08;
+      head.position.y = 1.38 + Math.abs(Math.sin(t * 1.6)) * 0.03;
+      arm.rotation.z = -0.4 + Math.sin(t * 3.2) * 0.25;
+    });
+    return g;
+  }
+
+  // Video promo IZZA di layar ponsel raksasa: baru dimuat saat pemain mendekat
+  let izzaVideo = null;
+  let izzaVideoTex = null;
+  function setIzzaVideo(on) {
+    if (!izzaScreen || REDUCED) return;
+    if (on && !izzaVideo) {
+      izzaVideo = document.createElement("video");
+      const mp4 = izzaVideo.canPlayType('video/mp4; codecs="avc1.640028"');
+      const src = mp4 ? "assets/izza/izza-promo-1.mp4" : "assets/izza/izza-promo-1.webm";
+      Object.assign(izzaVideo, { src, muted: true, loop: true, playsInline: true });
+      izzaVideo.setAttribute("muted", "");
+      izzaVideo.setAttribute("playsinline", "");
+      izzaVideoTex = new THREE.VideoTexture(izzaVideo);
+      izzaVideoTex.colorSpace = THREE.SRGBColorSpace;
+      izzaVideo.addEventListener("playing", () => {
+        izzaScreen.material.map = izzaVideoTex;
+        izzaScreen.material.needsUpdate = true;
+      });
+    }
+    if (!izzaVideo) return;
+    if (on && izzaVideo.paused) izzaVideo.play().catch(() => {});
+    else if (!on && !izzaVideo.paused) izzaVideo.pause();
+  }
+
   function buildPostOffice() {
     const g = new THREE.Group();
     const wall = "#e8eef2";
@@ -818,7 +969,13 @@ function initWorld() {
     fadeables.push(group);
   }
 
-  const builders = { about: buildHouse, skills: buildWorkshop, work: buildCinema, contact: buildPostOffice };
+  const builders = {
+    about: buildHouse,
+    skills: buildWorkshop,
+    work: buildCinema,
+    izza: buildObservatory,
+    contact: buildPostOffice,
+  };
   for (const s of STATIONS) {
     const g = builders[s.id]();
     g.traverse((o) => (o.userData.station = s.id));
@@ -833,7 +990,7 @@ function initWorld() {
       colliders.push({ dir: g.localToWorld(new THREE.Vector3(x, 0, z)).normalize(), r: r / R });
     }
     // papan nama di depan bangunan
-    const sb = signBoard(s.label.toUpperCase(), 1.2, 0.36, 0.75);
+    const sb = s.id === "izza" ? logoBoard() : signBoard(s.label.toUpperCase(), 1.2, 0.36, 0.75);
     const side = new THREE.Vector3().crossVectors(s.dir, s.forward).normalize();
     const sd = moveAlong(moveAlong(s.dir, s.forward, 0.165), side, 0.085);
     sb.traverse((o) => (o.userData.station = s.id));
@@ -854,7 +1011,7 @@ function initWorld() {
       const t = tangentToward(POLE, s.dir);
       const arm = new THREE.Group();
       arm.rotation.y = Math.atan2(-t.z, t.x);
-      const y = 2.45 - i * 0.25;
+      const y = 2.55 - i * 0.22;
       const board = new THREE.Group();
       board.add(box(0.95, 0.24, 0.05, "#8a5a33", 0.5, -0.12, 0));
       const tipShape = new THREE.Shape();
@@ -1128,7 +1285,7 @@ function initWorld() {
   const player = {
     dir: SPAWN.clone(),
     pos: new THREE.Vector3(),
-    heading: tangentToward(SPAWN, byId.skills.front),
+    heading: tangentToward(SPAWN, byId.izza.front),
     y: 0,
     vy: 0,
     grounded: true,
@@ -1136,7 +1293,7 @@ function initWorld() {
     walkPhase: 0,
   };
   // Arah awal sengaja tidak lurus ke tiang penunjuk di tengah alun-alun
-  const camFwd = tangentToward(SPAWN, byId.skills.front);
+  const camFwd = tangentToward(SPAWN, byId.izza.front);
   let camPitch = 0.8;
   let zoom = 1;
   const PLAYER_R = 0.28 / R;
@@ -1146,7 +1303,7 @@ function initWorld() {
 
   function resetPlayer() {
     player.dir.copy(SPAWN);
-    player.heading.copy(tangentToward(SPAWN, byId.skills.front));
+    player.heading.copy(tangentToward(SPAWN, byId.izza.front));
     camFwd.copy(player.heading);
     player.y = 0;
     player.vy = 0;
@@ -1366,7 +1523,7 @@ function initWorld() {
     el.className = "place-label";
     el.textContent = s.label;
     labelsEl.appendChild(el);
-    const tall = s.id === "work" ? 4.0 : 3.0;
+    const tall = s.id === "work" ? 4.0 : s.id === "izza" ? 3.3 : 3.0;
     const pos = s.dir.clone().multiplyScalar(R + tall);
     return { el, pos, n: pos.clone().normalize(), s, x: -1, y: -1, shown: true };
   });
@@ -1543,6 +1700,7 @@ function initWorld() {
     releaseKeys();
     player.speed = 0;
     nearStation = null;
+    setIzzaVideo(false);
     hideTouchHint();
   }
   // Setelah diklik mouse, lepas fokus supaya Space/Enter berikutnya dipakai untuk bermain
@@ -1669,6 +1827,10 @@ function initWorld() {
       }
     }
     const showPrompt = !!nearStation && ui.openId !== nearStation.id && mode === "play";
+    // putar video di ponsel raksasa hanya saat pemain berada di sekitar observatorium
+    const dIzza = angleBetween(player.dir, byId.izza.dir);
+    if (dIzza < 0.42) setIzzaVideo(true);
+    else if (dIzza > 0.55) setIzzaVideo(false);
     if (promptEl.hidden === showPrompt) promptEl.hidden = !showPrompt;
     if (!campFound && angleBetween(player.dir, CAMP.dir) < 0.16) {
       campFound = true;
@@ -1920,7 +2082,10 @@ function initUI({ world = false } = {}) {
     openPanel(id, { auto = false } = {}) {
       const p = panels[id];
       if (!p) return;
-      if (state.openId && state.openId !== id) panels[state.openId].hidden = true;
+      if (state.openId && state.openId !== id) {
+        pauseMedia(panels[state.openId]);
+        panels[state.openId].hidden = true;
+      }
       if (!auto && !state.openId) {
         // kembalikan fokus hanya untuk pengguna keyboard (bukan setelah klik mouse)
         const a = document.activeElement;
@@ -1946,6 +2111,7 @@ function initUI({ world = false } = {}) {
       if (!state.openId) return;
       const p = panels[state.openId];
       const hadFocus = p.contains(document.activeElement);
+      pauseMedia(p);
       p.hidden = true;
       state.openId = null;
       state.openAuto = false;
@@ -1992,7 +2158,20 @@ function initUI({ world = false } = {}) {
     }),
   );
   backdrop.addEventListener("click", () => state.closePanel());
+  // tombol di dalam panel yang membuka panel lain (mis. "Lihat IZZA" di My Work)
+  $$("[data-open]").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      blurIfMouse(e);
+      state.openPanel(b.dataset.open, { auto: false });
+    }),
+  );
   if (IS_TOUCH) document.body.classList.add("is-touch");
+  // posisi bawah menu atas (bisa dua baris di HP kecil) dipakai CSS untuk menata elemen di bawahnya
+  const syncNav = () =>
+    document.documentElement.style.setProperty("--nav-bottom", `${Math.round($(".nav-pills").getBoundingClientRect().bottom)}px`);
+  syncNav();
+  addEventListener("resize", syncNav);
+  document.fonts?.ready.then(syncNav);
 
   // Tanpa dunia 3D: Escape tetap menutup panel
   if (!world) {
@@ -2009,7 +2188,7 @@ function initUI({ world = false } = {}) {
 function initTyping() {
   const el = $("#typing-text");
   if (!el) return;
-  const phrases = ["Linguistik Indonesia", "Video Editor", "Content Creator", "Pembelajar Otodidak", "Tech Enthusiast", "Visual Storyteller"];
+  const phrases = ["Linguistik Indonesia", "Video Editor", "Content Creator", "Pembelajar Otodidak", "Tech Enthusiast", "Visual Storyteller", "Pembuat IZZA, AI Lokal"];
   if (REDUCED) return;
   let pi = 0;
   let ci = phrases[0].length;
