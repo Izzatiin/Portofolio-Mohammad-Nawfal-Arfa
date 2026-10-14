@@ -1,45 +1,65 @@
-# 🚀 Portfolio - Mohammad Nawfal Arfa
+# 🌍 Nawfal's World — Portfolio Mohammad Nawfal Arfa
 
-Selamat datang di repositori portfolio pribadi saya! Proyek ini adalah showcase dari keterampilan desain web dan pengembangan front-end saya yang dikemas dalam satu halaman interaktif.
+Portofolio interaktif berbentuk **planet mini 3D**. Pengunjung bisa berjalan-jalan dengan karakter kecil,
+mampir ke tiap bangunan, dan membaca cerita, keterampilan, karya, serta kontak saya.
 
 🔗 **Live Demo:** [Lihat Portfolio Saya](https://izzatiin.github.io/Portofolio-Mohammad-Nawfal-Arfa/)
 
 ---
 
-## 🛠️ Teknologi yang Digunakan
+## 🕹️ Cara Bermain
 
-Proyek ini dibangun menggunakan teknologi web dasar untuk memastikan performa yang cepat dan struktur yang bersih:
+| Aksi | Desktop | HP / Tablet |
+| --- | --- | --- |
+| Jalan | `W` `A` `S` `D` / tombol panah | Joystick kiri bawah |
+| Lari | Tahan `Shift` | Dorong joystick sampai penuh |
+| Lompat | `Space` | Tombol ⤒ |
+| Putar kamera | Seret layar | Seret layar |
+| Zoom | Scroll | Cubit (pinch) |
+| Masuk bangunan | Dekati (panel terbuka otomatis) atau `E` | Ketuk tombol "Masuk …" |
 
-* **HTML5:** Untuk struktur konten web yang semantik.
-* **CSS3:** Untuk styling, tata letak responsif, dan animasi.
-* **JavaScript:** Untuk fungsionalitas interaktif pada halaman.
+Menu di atas (**About Me, Skills, My Work, Contact**) langsung membuka isi tanpa perlu bermain.
+
+| Bangunan | Isi |
+| --- | --- |
+| 🏠 Rumah Nawfal | About Me |
+| 🛠️ Bengkel Kreatif | Skills |
+| 🎬 Bioskop Mini | My Work (film *Simpang Kisah* & web pertama) |
+| 📮 Kantor Pos | Contact + form pesan |
+
+Ada juga satu tempat rahasia di sisi lain planet. 🔥
+
+---
+
+## 🛠️ Teknologi
+
+* **HTML5, CSS3, JavaScript (ES Modules)**, tanpa proses build
+* **[Three.js](https://threejs.org/) r169** (disimpan di `vendor/`), semua model dibuat secara prosedural di kode
+* **EmailJS** untuk form kontak (dimuat saat panel Contact dibuka)
 
 ---
 
 ## 📁 Struktur Folder
 
-Berikut adalah gambaran singkat mengenai struktur file dalam proyek ini:
+* `index.html` — halaman utama (dunia 3D + panel konten)
+* `world.js` — logika dunia 3D: planet, bangunan, karakter, kontrol, kamera, panel
+* `world.css` — gaya tampilan (tema kertas krem & langit biru)
+* `vendor/three.module.min.js` — library Three.js
+* `assets/` — gambar yang sudah dikompres untuk versi 3D
+* `classic.html`, `style.css`, `script.js` — versi klasik (portofolio lama, satu halaman)
+* `Cleveroad.jpg`, `pf.png`, `img.jpg`, `icon.jpg` — gambar asli
 
-* `index.html` - File utama dan struktur halaman.
-* `style.css` - Berisi semua aturan desain dan layout.
-* `script.js` - Logika interaktif dan manipulasi DOM.
-* `README.md` - Dokumentasi proyek (file ini).
-* **Assets:** Gambar pendukung seperti `Cleveroad.jpg`, `icon.jpg`, `img.jpg`, dan `pf.png`.
+Jalankan secara lokal dengan server sederhana (ES module tidak bisa dibuka lewat `file://`):
 
----
-
-## ✨ Fitur Utama
-
-* **Responsive Design:** Tampilan yang optimal di berbagai perangkat (Mobile, Tablet, Desktop).
-* **Clean UI/UX:** Desain minimalis namun tetap informatif.
-* **Smooth Navigation:** Navigasi yang lancar antar bagian halaman.
+```bash
+python3 -m http.server 8000
+# lalu buka http://localhost:8000
+```
 
 ---
 
 ## 👤 Kontak
 
-Jika Anda ingin berdiskusi atau berkolaborasi, silakan hubungi saya melalui:
-
-* **GitHub:** [@izzatiin](https://github.com/izzatiin)
-* **Email:** nawfalarfa@email.com
-
+* **GitHub:** [@Izzatiin](https://github.com/Izzatiin)
+* **Email:** nawfalarfa14@gmail.com
+* **LinkedIn:** [Nawfal Arfa](https://www.linkedin.com/in/nawfal-arfa-496b3930b/)

@@ -14,8 +14,13 @@ const smooth = (e0, e1, x) => {
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// state modul (dideklarasikan di atas karena dunia di-boot sebelum fungsi-fungsi di bawah)
+let uiState = null;
+let emailjsPromise = null;
 const IS_TOUCH = matchMedia("(pointer: coarse)").matches;
-const isNarrow = () => innerWidth <= 720;
+// Panel jadi "bottom sheet" di layar sempit atau HP landscape (harus sama dengan CSS)
+const SHEET_MQ = matchMedia("(max-width: 720px), (pointer: coarse) and (max-height: 500px)");
+const isNarrow = () => SHEET_MQ.matches;
 
 // RNG dengan seed supaya dunia selalu sama setiap dibuka
 function rng(seed) {
@@ -66,11 +71,11 @@ function projectTangent(v, n) {
 }
 
 // Orientasi lokal: Y = atas (normal bola), Z = arah depan
+const _m4 = new THREE.Matrix4();
 function frameQuat(up, forward, out = new THREE.Quaternion()) {
   const z = _t1.copy(forward).sub(_t2.copy(up).multiplyScalar(up.dot(forward))).normalize();
   const x = _t2.crossVectors(up, z).normalize();
-  const m = new THREE.Matrix4().makeBasis(x, up, z);
-  return out.setFromRotationMatrix(m);
+  return out.setFromRotationMatrix(_m4.makeBasis(x, up, z));
 }
 
 const moveAlong = (dir, tangent, ang) =>
@@ -101,7 +106,15 @@ const SPAWN = sph(0.1, BASE_AZ + Math.PI * 0.78);
 // Jalan setapak berkelok (rangkaian busur lingkaran besar)
 const PATH_ARCS = [];
 function addArc(a, b) {
-  PATH_ARCS.push({ a, b, n: new THREE.Vector3().crossVectors(a, b).normalize(), len: angleBetween(a, b) });
+  const len = angleBetween(a, b);
+  PATH_ARCS.push({
+    a,
+    b,
+    n: new THREE.Vector3().crossVectors(a, b).normalize(),
+    len,
+    mid: a.clone().add(b).normalize(),
+    half: len / 2,
+  });
 }
 function addTrail(a, b, wiggle = 0.03, steps = 7, phase = 0) {
   const side = new THREE.Vector3().crossVectors(a, b).normalize();
@@ -136,9 +149,14 @@ function arcDist(v, arc) {
   return Math.min(angleBetween(v, arc.a), angleBetween(v, arc.b));
 }
 
-function pathDist(v) {
-  let d = Infinity;
-  for (const arc of PATH_ARCS) d = Math.min(d, arcDist(v, arc));
+// cap: jarak maksimum yang dipedulikan pemanggil (mempercepat perhitungan)
+function pathDist(v, cap = Infinity) {
+  let d = cap;
+  for (const arc of PATH_ARCS) {
+    // batas bawah jarak ke busur: jarak ke titik tengah dikurangi setengah panjangnya
+    if (angleBetween(v, arc.mid) - arc.half >= d) continue;
+    d = Math.min(d, arcDist(v, arc));
+  }
   return d;
 }
 
@@ -159,7 +177,7 @@ function heightAt(v) {
   for (const s of STATIONS) flat = Math.min(flat, smooth(0.17, 0.3, angleBetween(v, s.dir)));
   flat = Math.min(flat, smooth(0.1, 0.22, angleBetween(v, POLE)));
   flat = Math.min(flat, smooth(0.08, 0.18, angleBetween(v, CAMP.dir)));
-  flat = Math.min(flat, 0.45 + 0.55 * smooth(PATH_W, PATH_W + 0.06, pathDist(v)));
+  flat = Math.min(flat, 0.45 + 0.55 * smooth(PATH_W, PATH_W + 0.06, pathDist(v, 0.2)));
   h *= flat;
   const pa = angleBetween(v, POND.dir);
   if (pa < POND.r + 0.06) h = lerp(-0.55, h, smooth(POND.r - 0.05, POND.r + 0.06, pa));
@@ -181,25 +199,37 @@ const body = document.body;
 const loaderEl = $("#loader");
 const loaderText = $("#loader-text");
 
-if (!renderer) {
+function showFallback(message) {
   body.classList.add("no-webgl");
+  body.classList.remove("is-playing", "is-loading");
   const note = document.createElement("p");
   note.className = "webgl-note";
-  note.innerHTML =
-    'Browser ini belum mendukung WebGL, jadi dunia 3D-nya tidak bisa tampil. Pilih menu di atas untuk membaca, atau buka <a href="classic.html">versi klasik</a>.';
+  note.innerHTML = `${message} Pilih menu di atas untuk membaca, atau buka <a href="classic.html">versi klasik</a>.`;
   $("#intro").appendChild(note);
   loaderEl.classList.add("is-done");
-  body.classList.remove("is-loading");
-  initUI(null);
+  initUI({ world: false });
+}
+
+window.__worldBooted = true;
+if (body.classList.contains("boot-failed")) {
+  // jaring pengaman di index.html sudah aktif (modul datang terlambat); biarkan saja
+} else if (!renderer) {
+  showFallback("Browser ini belum mendukung WebGL, jadi dunia 3D-nya tidak bisa tampil.");
 } else {
-  initWorld();
+  try {
+    initWorld();
+  } catch (err) {
+    console.error(err);
+    showFallback("Dunia 3D gagal dimuat di perangkat ini.");
+  }
 }
 
 function initWorld() {
-  renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.75 : 2));
+  const maxDpr = IS_TOUCH ? 1.5 : 2;
+  renderer.setPixelRatio(Math.min(devicePixelRatio, maxDpr));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = IS_TOUCH ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 300);
@@ -265,6 +295,10 @@ function initWorld() {
       slab.position.set(0, h - (run * Math.tan(ang)) / 2 + (th / 2) / Math.cos(ang), (side * run) / 2);
       g.add(slab);
     }
+    const cap = mesh(new THREE.BoxGeometry(w + overhang * 2 + 0.04, 0.09, 0.2), roofColor);
+    cap.position.y = h + th / Math.cos(ang) - 0.03;
+    g.add(cap);
+    g.userData.slope = { ang, run, th, h };
     return g;
   }
 
@@ -326,9 +360,9 @@ function initWorld() {
     t.anisotropy = 4;
     return t;
   };
-  const texFilm = loadTex("Cleveroad.jpg");
-  const texWeb = loadTex("pf.png");
-  const texPhoto = loadTex("img.jpg");
+  const texFilm = loadTex("assets/simpang-kisah.jpg");
+  const texWeb = loadTex("assets/web-pertama.jpg");
+  const texPhoto = loadTex("assets/foto-nawfal.jpg");
 
   /* ===================== PLANET ===================== */
   const planetGeo = new THREE.IcosahedronGeometry(1, 22);
@@ -359,7 +393,7 @@ function initWorld() {
       for (let k = 0; k < 3; k++) c.add(a.fromBufferAttribute(pos, f + k).normalize());
       c.normalize();
       const pa = angleBetween(c, POND.dir);
-      const pd = pathDist(c);
+      const pd = pathDist(c, 0.2);
       const wob = 0.006 * Math.sin(c.x * 40 + c.z * 33);
       let nearStation = Infinity;
       for (const s of STATIONS) nearStation = Math.min(nearStation, angleBetween(c, s.dir));
@@ -369,10 +403,13 @@ function initWorld() {
       else if (pd < PATH_W + wob) col.copy(DIRT[Math.floor(r1 * DIRT.length)]);
       else if (angleBetween(c, POLE) < 0.085 || nearStation < 0.155 || angleBetween(c, CAMP.dir) < 0.08) col.copy(YARD);
       else {
-        col.copy(GRASS[Math.floor(r1 * GRASS.length)]);
-        if (rand() < 0.08) col.lerp(MEADOW, 0.7);
+        // warna rumput bergelombang halus (bukan acak per segitiga) supaya lembut
+        const n = 0.5 + 0.5 * Math.sin(c.x * 4.1 + c.z * 3.3 + 0.6) * Math.cos(c.y * 3.7 - c.x * 1.3);
+        col.copy(GRASS[2]).lerp(GRASS[3], n);
+        col.offsetHSL(0, 0, (r1 - 0.5) * 0.03);
+        if (rand() < 0.03) col.lerp(MEADOW, 0.4);
         // sisi belakang planet sedikit lebih gelap (hutan)
-        col.lerp(FOREST, smooth(1.2, 2.4, angleBetween(c, POLE)) * 0.35);
+        col.lerp(FOREST, smooth(1.2, 2.4, angleBetween(c, POLE)) * 0.2);
       }
       for (let k = 0; k < 3; k++) {
         colors[(f + k) * 3] = col.r;
@@ -440,10 +477,14 @@ function initWorld() {
     return g;
   }
 
+  // Permukaan bola melengkung turun menjauhi pusat bangunan; dipakai agar properti menapak tanah
+  const groundY = (x, z) => -(x * x + z * z) / (2 * R) + 0.02;
+
   function buildHouse() {
     const g = new THREE.Group();
     const wall = "#f1e2c2";
-    g.add(box(2.7, 0.22, 2.3, "#b9a98d"));
+    g.userData.props = [];
+    g.add(box(2.7, 0.44, 2.3, "#b9a98d", 0, -0.22, 0));
     g.add(box(2.4, 1.25, 2.0, wall, 0, 0.22, 0));
     const roof = gableRoof(2.4, 2.0, 0.95, "#d9622b", wall);
     roof.position.y = 1.47;
@@ -456,7 +497,7 @@ function initWorld() {
       g.add(box(0.4, 0.38, 0.07, "#9fd3e8", x, 0.67, 1.0));
       g.add(box(0.56, 0.08, 0.16, "#d9622b", x, 0.56, 1.04));
     }
-    g.add(box(0.8, 0.1, 0.4, "#b9a98d", 0, 0.12, 1.25));
+    g.add(box(0.8, 0.32, 0.4, "#b9a98d", 0, -0.1, 1.25));
     // papan foto
     const easel = new THREE.Group();
     easel.add(box(0.08, 1.0, 0.08, "#7a4a22", 0, 0, 0));
@@ -464,11 +505,12 @@ function initWorld() {
     const photo = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.68), new THREE.MeshStandardMaterial({ map: texPhoto, roughness: 0.9 }));
     photo.position.set(0, 1.15, 0.035);
     easel.add(photo);
-    easel.position.set(1.75, 0, 1.05);
+    easel.position.set(1.75, groundY(1.75, 1.05), 1.05);
     easel.rotation.y = -0.35;
     g.add(easel);
+    g.userData.props.push([1.75, 1.05, 0.22]);
     // pagar
-    for (let i = 0; i < 5; i++) g.add(box(0.08, 0.5, 0.08, "#fffaf0", -1.9 + i * 0.3, 0, -1.2));
+    for (let i = 0; i < 5; i++) g.add(box(0.08, 0.72, 0.08, "#fffaf0", -1.9 + i * 0.3, -0.22, -1.2));
     g.add(box(1.3, 0.06, 0.05, "#fffaf0", -1.3, 0.38, -1.2));
     // pot bunga
     for (const x of [-0.45, 0.45]) {
@@ -483,13 +525,14 @@ function initWorld() {
     const g = new THREE.Group();
     const wood = "#b07a45";
     const teal = "#5f9e8f";
-    g.add(box(2.7, 0.16, 2.1, wood));
+    g.userData.props = [];
+    g.add(box(2.7, 0.38, 2.1, wood, 0, -0.22, 0));
     g.add(box(2.7, 1.6, 0.16, teal, 0, 0.16, -0.97));
     g.add(box(0.16, 1.6, 1.0, teal, -1.27, 0.16, -0.5));
     g.add(box(0.16, 1.6, 1.0, teal, 1.27, 0.16, -0.5));
     const roof = box(3.0, 0.12, 2.5, "#3f7d6b", 0, 0, 0);
-    roof.position.set(0, 1.9, -0.15);
-    roof.rotation.x = 0.22;
+    roof.position.set(0, 1.7, -0.15);
+    roof.rotation.x = 0.078;
     g.add(roof);
     for (const x of [-1.27, 1.27]) g.add(box(0.12, 1.45, 0.12, wood, x, 0.16, 0.95));
     // meja + laptop
@@ -551,20 +594,24 @@ function initWorld() {
       cam.add(reel);
       reels.push(reel);
     }
-    cam.position.set(1.85, 0, 0.9);
+    cam.position.set(1.85, groundY(1.85, 0.9), 0.9);
+    g.userData.props.push([1.85, 0.9, 0.3]);
     cam.rotation.y = -0.5;
     g.add(cam);
     animated.push((t) => reels.forEach((r) => (r.rotation.x = t * 1.6)));
     // kotak-kotak peralatan
-    g.add(box(0.4, 0.3, 0.3, "#d9622b", -1.75, 0, 0.7));
-    g.add(box(0.3, 0.25, 0.3, "#e9d48a", -1.7, 0.3, 0.72));
+    const gy = groundY(-1.75, 0.7);
+    g.add(box(0.4, 0.3, 0.3, "#d9622b", -1.75, gy, 0.7));
+    g.add(box(0.3, 0.25, 0.3, "#e9d48a", -1.7, gy + 0.3, 0.72));
+    g.userData.props.push([-1.72, 0.7, 0.24]);
     return g;
   }
 
   function buildCinema() {
     const g = new THREE.Group();
     const red = "#c94f3d";
-    g.add(box(3.1, 0.18, 2.4, "#b9a98d"));
+    g.userData.props = [];
+    g.add(box(3.1, 0.42, 2.4, "#b9a98d", 0, -0.24, 0));
     g.add(box(2.9, 1.9, 2.1, red, 0, 0.18, -0.05));
     g.add(box(3.0, 0.18, 2.2, "#f1e2c2", 0, 2.08, -0.05));
     // pintu ganda
@@ -590,11 +637,11 @@ function initWorld() {
       bulbs.forEach((b, i) => (b.material.emissiveIntensity = (Math.floor(t * 3) + i) % 3 === 0 ? 0.15 : 1.4)),
     );
     // layar besar di atap: cuplikan film
-    g.add(box(0.12, 0.6, 0.12, "#3a3a3a", -1.1, 2.26, -0.3));
-    g.add(box(0.12, 0.6, 0.12, "#3a3a3a", 1.1, 2.26, -0.3));
-    g.add(box(3.0, 0.95, 0.12, "#2b2b2b", 0, 2.7, -0.3));
-    const film = new THREE.Mesh(new THREE.PlaneGeometry(2.86, 0.79), new THREE.MeshBasicMaterial({ map: texFilm }));
-    film.position.set(0, 3.175, -0.235);
+    g.add(box(0.12, 0.6, 0.12, "#3a3a3a", -0.6, 2.26, -0.3));
+    g.add(box(0.12, 0.6, 0.12, "#3a3a3a", 0.6, 2.26, -0.3));
+    g.add(box(1.74, 1.04, 0.12, "#2b2b2b", 0, 2.7, -0.3));
+    const film = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.9), new THREE.MeshBasicMaterial({ map: texFilm }));
+    film.position.set(0, 3.22, -0.235);
     g.add(film);
     // kios monitor: situs web pertama
     const kiosk = new THREE.Group();
@@ -604,35 +651,47 @@ function initWorld() {
     web.position.set(0, 1.14, 0.055);
     kiosk.add(web);
     kiosk.add(box(0.5, 0.06, 0.35, "#3a3a3a", 0, 0, 0));
-    kiosk.position.set(-2.05, 0.1, 0.9);
+    kiosk.position.set(-2.05, groundY(-2.05, 0.9), 0.9);
     kiosk.rotation.y = 0.45;
     g.add(kiosk);
+    g.userData.props.push([-2.05, 0.9, 0.3]);
     // poster samping
-    const poster = textPlane(["SIMPANG", "KISAH"], 0.6, 0.85, { w: 256, h: 360, bg: "#1f4a36", fg: "#f7dcaa", border: "#e9d48a", size: 64 });
-    poster.position.set(1.0, 0.95, 1.01);
+    const poster = textPlane(["SIMPANG", "KISAH"], 0.6, 0.72, { w: 256, h: 300, bg: "#1f4a36", fg: "#f7dcaa", border: "#e9d48a", size: 64 });
+    poster.position.set(1.0, 0.76, 1.01);
     g.add(poster);
     // popcorn!
     const pop = new THREE.Group();
     pop.add(cyl(0.16, 0.12, 0.34, 8, "#e04a3a", 0, 0, 0));
     for (let i = 0; i < 6; i++) pop.add(mesh(new THREE.IcosahedronGeometry(0.07, 0), "#fff6dc", Math.sin(i) * 0.08, 0.38 + (i % 2) * 0.05, Math.cos(i * 2) * 0.08));
-    pop.position.set(1.75, 0.18, 1.25);
+    pop.position.set(1.75, groundY(1.75, 1.25), 1.25);
     g.add(pop);
+    g.userData.props.push([1.75, 1.25, 0.2]);
     return g;
   }
 
   function buildPostOffice() {
     const g = new THREE.Group();
     const wall = "#e8eef2";
-    g.add(box(2.6, 0.2, 2.2, "#b9a98d"));
+    g.userData.props = [];
+    g.add(box(2.6, 0.42, 2.2, "#b9a98d", 0, -0.22, 0));
     g.add(box(2.3, 1.25, 1.9, wall, 0, 0.2, 0));
     g.add(box(2.32, 0.35, 1.92, "#3b6ea5", 0, 0.2, 0));
     const roof = gableRoof(2.3, 1.9, 0.85, "#8a5a3b", wall);
     roof.position.y = 1.45;
     g.add(roof);
-    g.add(box(0.5, 0.8, 0.06, "#3b6ea5", -0.45, 0.2, 0.96));
+    g.add(box(0.58, 0.86, 0.05, "#fffaf0", -0.45, 0.2, 0.955));
+    g.add(box(0.5, 0.8, 0.06, "#24466e", -0.45, 0.2, 0.97));
     g.add(box(0.55, 0.42, 0.06, "#9fd3e8", 0.5, 0.65, 0.96));
+    // papan "POS" ditempel rata di bidang atap depan
     const sign = textPlane("✉ POS", 1.0, 0.3, { bg: "#e3742f", fg: "#fffaf0", border: "#fffaf0", h: 154, size: 84 });
-    sign.position.set(0, 1.62, 0.96);
+    {
+      const { ang, run, th, h } = roof.userData.slope;
+      const n = new THREE.Vector3(0, Math.cos(ang), Math.sin(ang));
+      const c = new THREE.Vector3(0, h - (run * Math.tan(ang)) / 2 + th / 2 / Math.cos(ang), run / 2);
+      sign.position.copy(c).addScaledVector(n, th / 2 + 0.012);
+      sign.position.y += roof.position.y;
+      sign.rotation.x = -(Math.PI / 2 - ang);
+    }
     g.add(sign);
     // kotak surat besar
     const mb = new THREE.Group();
@@ -648,8 +707,9 @@ function initWorld() {
     flag.add(box(0.04, 0.14, 0.18, "#c0392b", 0, 0.26, 0.08));
     flag.position.set(0.3, 0.85, 0);
     mb.add(flag);
-    mb.position.set(1.55, 0, 1.05);
+    mb.position.set(1.55, groundY(1.55, 1.05), 1.05);
     g.add(mb);
+    g.userData.props.push([1.55, 1.05, 0.3]);
     animated.push((t) => (flag.rotation.x = -0.6 + Math.sin(t * 2) * 0.25));
     // pesawat kertas berputar
     const pg = new THREE.BufferGeometry();
@@ -671,9 +731,24 @@ function initWorld() {
       plane.rotation.z = 0.35;
     });
     // tumpukan paket
-    g.add(box(0.4, 0.3, 0.35, "#c4935c", -1.55, 0, 0.9));
-    g.add(box(0.3, 0.22, 0.3, "#d6aa6e", -1.5, 0.3, 0.9));
+    const py = groundY(-1.55, 0.9);
+    g.add(box(0.4, 0.3, 0.35, "#c4935c", -1.55, py, 0.9));
+    g.add(box(0.3, 0.22, 0.3, "#d6aa6e", -1.5, py + 0.3, 0.9));
+    g.userData.props.push([-1.52, 0.9, 0.24]);
     return g;
+  }
+
+  // Bangunan yang menghalangi pandangan ke karakter dibuat transparan sementara
+  const fadeables = [];
+  function makeFadeable(group) {
+    const mats = [];
+    group.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = o.material.clone();
+      mats.push(o.material);
+    });
+    group.userData.fade = { mats, cur: 1, target: 1 };
+    fadeables.push(group);
   }
 
   const builders = { about: buildHouse, skills: buildWorkshop, work: buildCinema, contact: buildPostOffice };
@@ -683,7 +758,12 @@ function initWorld() {
     placeOnSurface(g, s.dir, s.forward, -0.02);
     s.group = g;
     pickables.push(g);
+    makeFadeable(g);
     colliders.push({ dir: s.dir, r: s.radius });
+    g.updateMatrixWorld(true);
+    for (const [x, z, r] of g.userData.props || []) {
+      colliders.push({ dir: g.localToWorld(new THREE.Vector3(x, 0, z)).normalize(), r: r / R });
+    }
     // papan nama di depan bangunan
     const sb = signBoard(s.label.toUpperCase(), 1.2, 0.36, 0.75);
     const side = new THREE.Vector3().crossVectors(s.dir, s.forward).normalize();
@@ -691,19 +771,20 @@ function initWorld() {
     sb.traverse((o) => (o.userData.station = s.id));
     placeOnSurface(sb, sd, s.forward, -0.02);
     pickables.push(sb);
+    s.signDir = sd;
     colliders.push({ dir: sd, r: 0.03 });
   }
 
   // Tiang penunjuk arah di alun-alun
   {
     const post = new THREE.Group();
-    post.add(cyl(0.07, 0.08, 2.0, 6, "#7a4a22"));
-    post.add(mesh(new THREE.IcosahedronGeometry(0.1, 0), "#e9d48a", 0, 2.05, 0));
+    post.add(cyl(0.07, 0.08, 2.65, 6, "#7a4a22"));
+    post.add(mesh(new THREE.IcosahedronGeometry(0.1, 0), "#e9d48a", 0, 2.7, 0));
     STATIONS.forEach((s, i) => {
       const t = tangentToward(POLE, s.dir);
       const arm = new THREE.Group();
       arm.rotation.y = Math.atan2(-t.z, t.x);
-      const y = 1.75 - i * 0.28;
+      const y = 2.45 - i * 0.25;
       const board = new THREE.Group();
       board.add(box(0.95, 0.24, 0.05, "#8a5a33", 0.5, -0.12, 0));
       const tipShape = new THREE.Shape();
@@ -726,6 +807,7 @@ function initWorld() {
     });
     placeOnSurface(post, POLE, new THREE.Vector3(0, 0, 1), -0.05);
     colliders.push({ dir: POLE, r: 0.02 });
+    makeFadeable(post);
   }
 
   // Api unggun rahasia di balik planet
@@ -763,6 +845,10 @@ function initWorld() {
     }
     placeOnSurface(camp, CAMP.dir, tangentToward(CAMP.dir, POLE), -0.03);
     colliders.push({ dir: CAMP.dir, r: 0.05 });
+    camp.updateMatrixWorld(true);
+    for (const [x, z] of [[0.25, -1.1], [0.75, -1.1], [0.25, 1.1], [0.75, 1.1]]) {
+      colliders.push({ dir: camp.localToWorld(new THREE.Vector3(x, 0, z)).normalize(), r: 0.2 / R });
+    }
     animated.push((t) => {
       flames.forEach((f, i) => {
         f.scale.set(1 + Math.sin(t * 9 + i) * 0.08, 1 + Math.sin(t * 13 + i * 2) * 0.15, 1 + Math.cos(t * 8 + i) * 0.08);
@@ -784,11 +870,12 @@ function initWorld() {
     if (angleBetween(d, SPAWN) < 0.08) return true;
     for (const s of STATIONS) {
       if (angleBetween(d, s.dir) < 0.27 + margin) return true;
-      if (angleBetween(d, s.front) < 0.1 + margin) return true;
+      if (angleBetween(d, s.front) < 0.14 + margin) return true;
+      if (angleBetween(d, s.signDir) < 0.16 + margin) return true;
     }
     if (angleBetween(d, POND.dir) < POND.r + 0.06 + margin) return true;
     if (angleBetween(d, CAMP.dir) < 0.17 + margin) return true;
-    if (pathDist(d) < PATH_W + 0.035 + margin) return true;
+    if (pathDist(d, 0.3) < PATH_W + 0.035 + margin) return true;
     return false;
   }
 
@@ -868,7 +955,7 @@ function initWorld() {
   const tufts = [];
   for (let tries = 0; tries < 5000 && tufts.length < 420; tries++) {
     const d = randomDir();
-    if (pathDist(d) < PATH_W + 0.01 || angleBetween(d, POND.dir) < POND.r + 0.03) continue;
+    if (pathDist(d, 0.1) < PATH_W + 0.01 || angleBetween(d, POND.dir) < POND.r + 0.03) continue;
     if (STATIONS.some((s) => angleBetween(d, s.dir) < 0.13)) continue;
     tufts.push({ dir: d, s: 0.6 + rand() * 0.8, yaw: rand() * 6 });
   }
@@ -880,6 +967,8 @@ function initWorld() {
   for (let tries = 0; tries < 5000 && flowers.length < 190; tries++) {
     const d = randomDir();
     if (blocked(d, -0.15)) continue;
+    if (pathDist(d, 0.1) < PATH_W + 0.01 || angleBetween(d, POND.dir) < POND.r + 0.04) continue;
+    if (STATIONS.some((s) => angleBetween(d, s.dir) < 0.17)) continue;
     const near = STATIONS.some((s) => angleBetween(d, s.dir) < 0.5) || angleBetween(d, POLE) < 0.45;
     if (!near && rand() < 0.7) continue;
     flowers.push({ dir: d, s: 0.7 + rand() * 0.6, yaw: rand() * 6 });
@@ -892,19 +981,23 @@ function initWorld() {
   /* ===================== AWAN ===================== */
   const clouds = new THREE.Group();
   scene.add(clouds);
-  const cloudMat = new THREE.MeshStandardMaterial({ color: "#fdfcf7", flatShading: true, roughness: 1 });
+  const cloudList = [];
   for (let i = 0; i < 11; i++) {
     const c = new THREE.Group();
+    // tiap awan punya material sendiri agar bisa memudar saat dekat kamera
+    const cm = new THREE.MeshStandardMaterial({ color: "#fdfcf7", flatShading: true, roughness: 1, transparent: true });
     const n = 3 + Math.floor(rand() * 3);
     for (let k = 0; k < n; k++) {
-      const p = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7 + rand() * 0.6, 0), cloudMat);
+      const p = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7 + rand() * 0.6, 0), cm);
       p.position.set((k - n / 2) * 0.85, rand() * 0.4, (rand() - 0.5) * 0.6);
-      p.scale.y = 0.75;
+      p.scale.set(1.15, 0.7, 1);
       c.add(p);
     }
+    c.userData.mat = cm;
+    cloudList.push(c);
     const d = randomDir();
-    c.position.copy(d).multiplyScalar(R + 4.2 + rand() * 2.2);
-    frameQuat(d, anyTangent(d), c.quaternion);
+    c.position.copy(d).multiplyScalar(R + 6 + rand() * 2.5);
+    frameQuat(d, tangentToward(d, POLE), c.quaternion);
     c.scale.setScalar(0.7 + rand() * 0.5);
     clouds.add(c);
   }
@@ -959,14 +1052,15 @@ function initWorld() {
   const player = {
     dir: SPAWN.clone(),
     pos: new THREE.Vector3(),
-    heading: tangentToward(SPAWN, POLE),
+    heading: tangentToward(SPAWN, byId.skills.front),
     y: 0,
     vy: 0,
     grounded: true,
     speed: 0,
     walkPhase: 0,
   };
-  const camFwd = tangentToward(SPAWN, POLE);
+  // Arah awal sengaja tidak lurus ke tiang penunjuk di tengah alun-alun
+  const camFwd = tangentToward(SPAWN, byId.skills.front);
   let camPitch = 0.8;
   let zoom = 1;
   const PLAYER_R = 0.28 / R;
@@ -976,10 +1070,14 @@ function initWorld() {
 
   function resetPlayer() {
     player.dir.copy(SPAWN);
-    player.heading.copy(tangentToward(SPAWN, POLE));
+    player.heading.copy(tangentToward(SPAWN, byId.skills.front));
     camFwd.copy(player.heading);
     player.y = 0;
     player.vy = 0;
+    player.speed = 0;
+    player.grounded = true;
+    player.walkPhase = 0;
+    jumpQueued = false;
     camPitch = 0.8;
     zoom = 1;
   }
@@ -999,13 +1097,17 @@ function initWorld() {
   };
 
   addEventListener("keydown", (e) => {
-    if (typingTarget(e) || e.metaKey || e.ctrlKey || e.altKey) return;
-    if ((e.code === "Space" || e.code === "Enter") && e.target.closest?.("button, a")) return;
-    const k = KEYMAP[e.code];
     if (e.code === "Escape") {
-      if (ui.openId) ui.closePanel();
+      if (ui.openId) {
+        ui.closePanel();
+        e.preventDefault();
+      }
       return;
     }
+    if (typingTarget(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+    // Space/Enter pada tombol/tautan yang sedang difokus (pengguna keyboard) tetap berfungsi normal
+    if ((e.code === "Space" || e.code === "Enter") && e.target.closest?.("button, a")) return;
+    const k = KEYMAP[e.code];
     if (mode === "intro" && (k || e.code === "Space") && !ui.openId) {
       startPlaying();
       e.preventDefault();
@@ -1025,7 +1127,7 @@ function initWorld() {
       e.preventDefault();
     } else if (e.code === "ShiftLeft" || e.code === "ShiftRight") {
       keys.add("shift");
-    } else if ((e.code === "KeyE" || e.code === "Enter") && nearStation && !inPanel) {
+    } else if ((e.code === "KeyE" || (e.code === "Enter" && !inPanel)) && nearStation) {
       ui.openPanel(nearStation.id, { auto: false });
       e.preventDefault();
     }
@@ -1039,9 +1141,12 @@ function initWorld() {
     if (e.code === "Space") keyEls.space?.classList.remove("is-down");
     if (e.code.startsWith("Shift")) keys.delete("shift");
   });
-  addEventListener("blur", () => {
+  function releaseKeys() {
     keys.clear();
     Object.values(keyEls).forEach((el) => el?.classList.remove("is-down"));
+  }
+  addEventListener("blur", () => {
+    releaseKeys();
   });
 
   // Joystick sentuh
@@ -1065,6 +1170,7 @@ function initWorld() {
     joy.y = -dy / max;
   };
   joyEl.addEventListener("pointerdown", (e) => {
+    hideTouchHint();
     joyPointer = e.pointerId;
     joyEl.setPointerCapture(e.pointerId);
     joy.active = true;
@@ -1172,26 +1278,62 @@ function initWorld() {
   /* ===================== LABEL HTML ===================== */
   const labelsEl = $("#labels");
   const labelItems = STATIONS.map((s) => {
-    const el = document.createElement("div");
+    const el = document.createElement("button");
+    el.type = "button";
     el.className = "place-label";
+    el.tabIndex = -1; // menu atas sudah bisa diakses keyboard
     el.textContent = s.label;
+    el.addEventListener("click", () => {
+      if (mode !== "transition") ui.openPanel(s.id, { auto: false });
+      el.blur();
+    });
     labelsEl.appendChild(el);
-    const tall = s.id === "work" ? 3.9 : 3.0;
-    return { el, pos: s.dir.clone().multiplyScalar(R + tall), s };
+    const tall = s.id === "work" ? 4.0 : 3.0;
+    const pos = s.dir.clone().multiplyScalar(R + tall);
+    return { el, pos, n: pos.clone().normalize(), s, x: -1, y: -1, shown: true };
   });
+
+  // Ukuran elemen HTML yang memengaruhi tata letak 3D (diukur ulang saat resize)
+  const layout = { navBottom: 60, introBottom: 260, introRight: innerWidth };
+  function measureLayout() {
+    layout.navBottom = $(".nav-pills").getBoundingClientRect().bottom;
+    let bottom = 0;
+    let right = 0;
+    for (const el of $("#intro").children) {
+      if (!el.getClientRects().length) continue;
+      const r = el.getBoundingClientRect();
+      bottom = Math.max(bottom, r.bottom);
+      right = Math.max(right, r.right);
+    }
+    layout.introBottom = bottom;
+    layout.introRight = right;
+  }
+  const introBeside = () => layout.introRight < innerWidth * 0.6;
+
   const _proj = new THREE.Vector3();
+  const _camN = new THREE.Vector3();
   function updateLabels() {
-    const camN = camera.position.clone().normalize();
+    _camN.copy(camera.position).normalize();
     const horizon = R / camera.position.length();
+    const minY = (mode === "intro" && !introBeside() ? layout.introBottom : layout.navBottom) + 26;
     for (const l of labelItems) {
-      const vis = l.pos.clone().normalize().dot(camN) > horizon - 0.12;
-      _proj.copy(l.pos).project(camera);
-      const show = vis && _proj.z < 1 && Math.abs(_proj.x) < 1.1 && Math.abs(_proj.y) < 1.1 && ui.openId !== l.s.id;
-      l.el.classList.toggle("is-hidden", !show);
+      let show = l.n.dot(_camN) > horizon - 0.12 && ui.openId !== l.s.id;
+      let x = 0;
+      let y = 0;
       if (show) {
-        const x = (_proj.x * 0.5 + 0.5) * innerWidth;
-        const y = (-_proj.y * 0.5 + 0.5) * innerHeight;
+        _proj.copy(l.pos).project(camera);
+        x = Math.round((_proj.x * 0.5 + 0.5) * innerWidth);
+        y = Math.round((-_proj.y * 0.5 + 0.5) * innerHeight);
+        show = _proj.z < 1 && x > -40 && x < innerWidth + 40 && y > minY && y < innerHeight + 20;
+      }
+      if (show !== l.shown) {
+        l.el.classList.toggle("is-hidden", !show);
+        l.shown = show;
+      }
+      if (show && (x !== l.x || y !== l.y)) {
         l.el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+        l.x = x;
+        l.y = y;
       }
     }
   }
@@ -1199,24 +1341,47 @@ function initWorld() {
   /* ===================== KAMERA ===================== */
   const camState = { pos: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0), target: new THREE.Vector3() };
 
+  // Planet intro dimuat di ruang layar yang benar-benar kosong (di bawah atau di samping teks)
   function introFit() {
-    const vHalf = THREE.MathUtils.degToRad(camera.fov / 2);
-    const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
-    const portrait = camera.aspect < 0.8;
-    const fit = Math.min(vHalf * (portrait ? 0.6 : 0.5), hHalf * 0.84);
-    // geser planet ke bawah layar supaya judul & tombol punya ruang
-    const shift = vHalf * (portrait ? 0.24 : 0.36);
-    return { D: (R * 1.12) / Math.sin(fit), shift };
+    const W = innerWidth;
+    const H = innerHeight;
+    const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    const tanH = tanV * camera.aspect;
+    let x0 = 12;
+    let x1 = W - 12;
+    let y0 = layout.introBottom + 44;
+    const y1 = H - 12;
+    if (introBeside()) {
+      x0 = layout.introRight + 16;
+      y0 = layout.navBottom + 36;
+    }
+    let diam = Math.min(x1 - x0, y1 - y0);
+    diam = Math.max(diam, Math.min(W, H) * 0.42); // jangan sampai terlalu kecil
+    const cx = (x0 + x1) / 2;
+    const cy = Math.min(y1 - diam / 2, Math.max((y0 + y1) / 2, y0 + diam / 2));
+    const fit = Math.atan((diam / H) * tanV);
+    return {
+      D: (R * 1.12) / Math.sin(fit),
+      shiftX: Math.atan(((cx - W / 2) / (W / 2)) * tanH),
+      shiftY: Math.atan(((cy - H / 2) / (H / 2)) * tanV),
+    };
   }
+  const _dir = new THREE.Vector3();
+  const _su = new THREE.Vector3();
+  const _right = new THREE.Vector3();
   function introPose(out) {
-    const { D, shift } = introFit();
+    const { D, shiftX, shiftY } = introFit();
     const a = BASE_AZ + Math.PI * 0.78 + introSpin;
     const tilt = introTilt;
     out.pos.set(Math.cos(a) * Math.cos(tilt) * D, Math.sin(tilt) * D, Math.sin(a) * Math.cos(tilt) * D);
     out.up.set(0, 1, 0);
-    const dir = out.pos.clone().normalize().negate();
-    const screenUp = UP.clone().sub(dir.clone().multiplyScalar(UP.dot(dir))).normalize();
-    out.target.copy(screenUp).multiplyScalar(D * Math.tan(shift));
+    _dir.copy(out.pos).normalize().negate();
+    _su.copy(UP).addScaledVector(_dir, -UP.dot(_dir)).normalize();
+    _right.crossVectors(_dir, _su);
+    out.target
+      .copy(_su)
+      .multiplyScalar(D * Math.tan(shiftY))
+      .addScaledVector(_right, -D * Math.tan(shiftX));
     return out;
   }
   function followPose(out) {
@@ -1228,7 +1393,7 @@ function initWorld() {
       .addScaledVector(up, Math.sin(camPitch) * dist)
       .addScaledVector(camFwd, -Math.cos(camPitch) * dist);
     // jangan sampai kamera masuk ke tanah
-    const minR = surfaceRadius(out.pos.clone().normalize()) + 1.2;
+    const minR = surfaceRadius(_dir.copy(out.pos).normalize()) + 1.2;
     if (out.pos.length() < minR) out.pos.setLength(minR);
     out.up.copy(up);
     out.target.copy(player.pos).addScaledVector(up, 0.9);
@@ -1242,7 +1407,7 @@ function initWorld() {
 
   /* ===================== MODE ===================== */
   let mode = "intro"; // intro | transition | play
-  const trans = { t: 0, dur: 1.8, from: null, to: null, next: "play" };
+  const trans = { t: 0, dur: 1.8, next: "play", queued: null };
   const tmpPose = () => ({ pos: new THREE.Vector3(), up: new THREE.Vector3(), target: new THREE.Vector3() });
   const poseA = tmpPose();
   const poseB = tmpPose();
@@ -1253,7 +1418,18 @@ function initWorld() {
     out.target.copy(camState.target);
     return out;
   }
+  const hudEl = $("#hud");
+  const promptEl = $("#hud-prompt");
+  const promptText = $("#hud-prompt-text");
+  const touchHint = $("#touch-hint");
+  let hintTimer = 0;
+  const hideTouchHint = () => touchHint.classList.add("is-gone");
+
   function startPlaying() {
+    if (mode === "transition") {
+      trans.queued = trans.next === "play" ? null : "play";
+      return;
+    }
     if (mode !== "intro") return;
     mode = "transition";
     trans.t = 0;
@@ -1261,10 +1437,19 @@ function initWorld() {
     trans.next = "play";
     snapshot(poseA);
     body.classList.add("is-playing");
-    $("#hud").setAttribute("aria-hidden", "false");
+    hudEl.inert = false;
     if (ui.openId && isNarrow()) ui.closePanel();
+    if (IS_TOUCH) {
+      touchHint.classList.remove("is-gone");
+      clearTimeout(hintTimer);
+      hintTimer = setTimeout(hideTouchHint, 8000);
+    }
   }
   function goHome() {
+    if (mode === "transition") {
+      trans.queued = trans.next === "intro" ? null : "intro";
+      return;
+    }
     if (mode !== "play") return;
     mode = "transition";
     trans.t = 0;
@@ -1273,25 +1458,37 @@ function initWorld() {
     snapshot(poseA);
     ui.closePanel();
     body.classList.remove("is-playing");
-    $("#hud").setAttribute("aria-hidden", "true");
-    $("#hud-prompt").hidden = true;
-    keys.clear();
+    hudEl.inert = true;
+    promptEl.hidden = true;
+    releaseKeys();
+    player.speed = 0;
+    nearStation = null;
+    hideTouchHint();
   }
-  $("#explore-btn").addEventListener("click", startPlaying);
-  $("#home-btn").addEventListener("click", goHome);
+  // Setelah diklik mouse, lepas fokus supaya Space/Enter berikutnya dipakai untuk bermain
+  const blurIfMouse = (e) => e.detail > 0 && e.currentTarget.blur();
+  $("#explore-btn").addEventListener("click", (e) => {
+    blurIfMouse(e);
+    startPlaying();
+  });
+  $("#home-btn").addEventListener("click", (e) => {
+    blurIfMouse(e);
+    goHome();
+  });
 
   /* ===================== UI ===================== */
-  const ui = initUI({
-    onOpen: () => {},
+  const ui = initUI({ world: true });
+  promptEl.addEventListener("click", (e) => {
+    blurIfMouse(e);
+    if (nearStation) ui.openPanel(nearStation.id, { auto: false });
   });
-  $("#hud-prompt").addEventListener("click", () => nearStation && ui.openPanel(nearStation.id, { auto: false }));
 
   /* ===================== UPDATE ===================== */
   let nearStation = null;
   let campFound = false;
-  const tmpV = new THREE.Vector3();
   const moveDir = new THREE.Vector3();
   const right = new THREE.Vector3();
+  const _cross = new THREE.Vector3();
 
   function updatePlayer(dt) {
     const up = player.dir;
@@ -1314,9 +1511,10 @@ function initWorld() {
 
     if (mag > 0.05) {
       moveDir.normalize();
-      // putar badan ke arah gerak
+      // putar badan ke arah gerak (pakai sudut, supaya bisa berbalik 180° tanpa "jalan mundur")
       const k = 1 - Math.exp(-dt * 12);
-      player.heading.lerp(moveDir, k);
+      const ang = Math.atan2(_cross.crossVectors(player.heading, moveDir).dot(up), player.heading.dot(moveDir));
+      player.heading.applyAxisAngle(up, ang * k);
       projectTangent(player.heading, up);
     }
     if (player.speed > 0.01) {
@@ -1329,6 +1527,11 @@ function initWorld() {
           const a = angleBetween(nd, c.dir);
           if (a < lim) {
             const away = tangentToward(c.dir, nd);
+            // menabrak tepat di tengah: belokkan sedikit supaya bisa menyusur, tidak tersangkut
+            if (away.dot(stepDir) < -0.9) {
+              const onRight = _cross.crossVectors(stepDir, up).dot(c.dir) > 0;
+              away.applyAxisAngle(c.dir, onRight ? -0.6 : 0.6);
+            }
             nd = moveAlong(c.dir, away, lim + 1e-4);
           }
         }
@@ -1376,15 +1579,15 @@ function initWorld() {
     if (near !== nearStation) {
       nearStation = near;
       if (near) {
-        if (!isNarrow() && (!ui.openId || ui.openAuto)) ui.openPanel(near.id, { auto: true });
+        // desktop: panel samping terbuka otomatis; layar sentuh/sempit: tampilkan tombol "Masuk"
+        if (!isNarrow() && !IS_TOUCH && (!ui.openId || ui.openAuto)) ui.openPanel(near.id, { auto: true });
+        promptText.textContent = `Masuk ${near.name}`;
       } else if (ui.openAuto) {
         ui.closePanel();
       }
     }
-    const prompt = $("#hud-prompt");
-    const showPrompt = !!nearStation && ui.openId !== nearStation?.id && mode === "play";
-    prompt.hidden = !showPrompt;
-    if (showPrompt) $("#hud-prompt-text").textContent = `Masuk ${nearStation.name}`;
+    const showPrompt = !!nearStation && ui.openId !== nearStation.id && mode === "play";
+    if (promptEl.hidden === showPrompt) promptEl.hidden = !showPrompt;
     if (!campFound && angleBetween(player.dir, CAMP.dir) < 0.16) {
       campFound = true;
       ui.toast("🔥 Kamu menemukan api unggun rahasia! Terima kasih sudah menjelajah sejauh ini.");
@@ -1392,13 +1595,77 @@ function initWorld() {
   }
 
   const sunDir = new THREE.Vector3();
+  const _sunN = new THREE.Vector3();
+  const _sunR = new THREE.Vector3();
   function updateSun() {
     // matahari mengikuti kamera supaya sisi yang dilihat selalu terang
-    const camN = camera.position.clone().normalize();
-    const camRight = new THREE.Vector3().crossVectors(camera.up, camN).normalize();
+    const camN = _sunN.copy(camera.position).normalize();
+    const camRight = _sunR.crossVectors(camera.up, camN).normalize();
     sunDir.copy(camN).addScaledVector(camera.up, 0.9).addScaledVector(camRight, -0.6).normalize();
     sun.position.copy(sunDir).multiplyScalar(45);
     sun.target.position.set(0, 0, 0);
+  }
+
+  // Bangunan/tiang yang menutupi karakter dibuat tembus pandang
+  const occRay = new THREE.Raycaster();
+  const _occT = new THREE.Vector3();
+  const _occD = new THREE.Vector3();
+  const occHits = new Set();
+  let occTick = 0;
+  function updateOcclusion(dt) {
+    if (mode !== "play") {
+      occHits.clear();
+    } else if (occTick++ % 3 === 0) {
+      occHits.clear();
+      _occT.copy(player.pos).addScaledVector(player.dir, 0.7);
+      _occD.copy(_occT).sub(camera.position);
+      const dist = _occD.length();
+      occRay.set(camera.position, _occD.divideScalar(dist));
+      occRay.far = Math.max(0, dist - 0.6);
+      for (const h of occRay.intersectObjects(fadeables, true)) {
+        let o = h.object;
+        while (o && !o.userData.fade) o = o.parent;
+        if (o) occHits.add(o);
+      }
+    }
+    for (const g of fadeables) {
+      const f = g.userData.fade;
+      f.target = occHits.has(g) ? 0.25 : 1;
+      if (f.cur === f.target) continue;
+      f.cur = lerp(f.cur, f.target, 1 - Math.exp(-dt * 10));
+      if (Math.abs(f.cur - f.target) < 0.01) f.cur = f.target;
+      const transparent = f.cur < 1;
+      for (const m of f.mats) {
+        if (m.transparent !== transparent) {
+          m.transparent = transparent;
+          m.needsUpdate = true;
+        }
+        m.opacity = f.cur;
+      }
+    }
+  }
+
+  // Awan memudar saat terlalu dekat kamera
+  const _cw = new THREE.Vector3();
+  function updateClouds(dt) {
+    clouds.rotation.y += dt * 0.02;
+    clouds.rotation.x = Math.sin(elapsed * 0.05) * 0.1;
+    for (const c of cloudList) {
+      const d = c.getWorldPosition(_cw).distanceTo(camera.position);
+      c.userData.mat.opacity = smooth(2.5, 7, d);
+      c.visible = d > 1.5;
+    }
+  }
+
+  // Saat panel samping terbuka, geser gambar 3D ke kiri supaya karakter tetap di tengah area yang terlihat
+  let viewOff = 0;
+  function updateViewOffset(dt) {
+    const target = ui.openId && !isNarrow() ? ui.openPanelWidth() / 2 : 0;
+    if (viewOff === target) return;
+    viewOff = lerp(viewOff, target, 1 - Math.exp(-dt * 8));
+    if (Math.abs(viewOff - target) < 0.5) viewOff = target;
+    if (viewOff > 0.5) camera.setViewOffset(innerWidth, innerHeight, viewOff, 0, innerWidth, innerHeight);
+    else camera.clearViewOffset();
   }
 
   const clock = new THREE.Clock();
@@ -1434,7 +1701,7 @@ function initWorld() {
       if (trans.next === "play") followPose(poseB);
       else introPose(poseB);
       const r = lerp(poseA.pos.length(), poseB.pos.length(), k);
-      camState.pos.copy(slerpDir(poseA.pos.clone().normalize(), poseB.pos.clone().normalize(), k)).multiplyScalar(r);
+      camState.pos.copy(slerpDir(_dir.copy(poseA.pos).normalize(), _occD.copy(poseB.pos).normalize(), k)).multiplyScalar(r);
       camState.up.copy(poseA.up).lerp(poseB.up, k).normalize();
       camState.target.copy(poseA.target).lerp(poseB.target, k);
       if (trans.t >= trans.dur) {
@@ -1443,6 +1710,10 @@ function initWorld() {
           resetPlayer();
           introTilt = 0.95;
         }
+        const queued = trans.queued;
+        trans.queued = null;
+        if (queued === "play") startPlaying();
+        else if (queued === "intro") goHome();
       }
     } else {
       followPose(poseB);
@@ -1451,12 +1722,13 @@ function initWorld() {
       camState.up.lerp(poseB.up, k).normalize();
       camState.target.lerp(poseB.target, 1 - Math.exp(-dt * 14));
     }
+    updateViewOffset(dt);
     applyCam(camState);
 
     if (mode === "play") updateProximity();
     updateSun();
-    clouds.rotation.y += dt * 0.02;
-    clouds.rotation.x = Math.sin(elapsed * 0.05) * 0.1;
+    updateClouds(dt);
+    updateOcclusion(dt);
     for (const fn of animated) fn(elapsed, dt);
     updateLabels();
 
@@ -1472,7 +1744,7 @@ function initWorld() {
   let texturesDone = false;
   let loaderHidden = false;
   manager.onProgress = (_url, loaded, total) => {
-    loaderText.textContent = `Loading… ${Math.round((loaded / total) * 100)}%`;
+    loaderText.textContent = `Memuat… ${Math.round((loaded / total) * 100)}%`;
   };
   manager.onLoad = () => {
     texturesDone = true;
@@ -1490,14 +1762,22 @@ function initWorld() {
   }
   setTimeout(() => maybeHideLoader(true), 6000);
 
-  // gambar ulang papan nama setelah font siap
-  if (document.fonts?.ready) document.fonts.ready.then(() => textRedraws.forEach((d) => d()));
+  // gambar ulang papan nama & ukur ulang tata letak setelah font siap
+  if (document.fonts?.ready)
+    document.fonts.ready.then(() => {
+      textRedraws.forEach((d) => d());
+      measureLayout();
+    });
 
   /* ===================== RESIZE ===================== */
   function onResize() {
     camera.aspect = innerWidth / innerHeight;
+    if (camera.view?.enabled) camera.setViewOffset(innerWidth, innerHeight, viewOff, 0, innerWidth, innerHeight);
     camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(devicePixelRatio, maxDpr));
     renderer.setSize(innerWidth, innerHeight);
+    measureLayout();
+    ui.sync();
   }
   addEventListener("resize", onResize);
   onResize();
@@ -1523,11 +1803,13 @@ function initWorld() {
 }
 
 /* ===================== UI: panel, menu, efek ketik, form ===================== */
-function initUI() {
+function initUI({ world = false } = {}) {
+  if (uiState) return uiState;
   const panels = Object.fromEntries($$(".panel").map((p) => [p.id.replace("panel-", ""), p]));
   const pills = $$(".pill");
   const backdrop = $("#panel-backdrop");
   let returnFocus = null;
+  const blurIfMouse = (e) => e.detail > 0 && e.currentTarget.blur();
 
   const state = {
     openId: null,
@@ -1536,68 +1818,95 @@ function initUI() {
       const p = panels[id];
       if (!p) return;
       if (state.openId && state.openId !== id) panels[state.openId].hidden = true;
-      if (!auto) returnFocus = document.activeElement;
+      if (!auto && !state.openId) {
+        // kembalikan fokus hanya untuk pengguna keyboard (bukan setelah klik mouse)
+        const a = document.activeElement;
+        returnFocus = a && a !== document.body && a.matches(":focus-visible") ? a : null;
+      }
       p.hidden = false;
-      p.scrollTop = 0;
       $(".panel-scroll", p).scrollTop = 0;
       state.openId = id;
       state.openAuto = auto;
-      backdrop.hidden = !(isNarrow() && !auto);
-      pills.forEach((b) => b.classList.toggle("is-active", b.dataset.go === id));
+      state.sync();
+      pills.forEach((b) => {
+        const on = b.dataset.go === id;
+        b.classList.toggle("is-active", on);
+        b.setAttribute("aria-expanded", String(on));
+      });
       if (!auto) {
         p.setAttribute("tabindex", "-1");
         p.focus({ preventScroll: true });
       }
+      if (id === "contact") loadEmailJS().catch(() => {});
     },
     closePanel() {
       if (!state.openId) return;
-      panels[state.openId].hidden = true;
+      const p = panels[state.openId];
+      const hadFocus = p.contains(document.activeElement);
+      p.hidden = true;
       state.openId = null;
       state.openAuto = false;
-      backdrop.hidden = true;
-      pills.forEach((b) => b.classList.remove("is-active"));
-      if (returnFocus && document.contains(returnFocus) && returnFocus !== document.body) returnFocus.focus({ preventScroll: true });
+      state.sync();
+      pills.forEach((b) => {
+        b.classList.remove("is-active");
+        b.setAttribute("aria-expanded", "false");
+      });
+      if (returnFocus && document.contains(returnFocus)) returnFocus.focus({ preventScroll: true });
+      else if (hadFocus) document.activeElement.blur();
       returnFocus = null;
+    },
+    // backdrop hanya untuk bottom sheet yang dibuka manual (dihitung ulang saat layar diputar)
+    sync() {
+      const sheet = !!state.openId && isNarrow() && !state.openAuto;
+      backdrop.hidden = !sheet;
+      if (state.openId) panels[state.openId].setAttribute("aria-modal", String(sheet));
+    },
+    openPanelWidth() {
+      return state.openId ? panels[state.openId].offsetWidth + 16 : 0;
     },
     toast(msg) {
       const t = document.createElement("div");
       t.className = "toast paper-chip";
       t.setAttribute("role", "status");
       t.textContent = msg;
-      Object.assign(t.style, {
-        position: "fixed", left: "50%", top: "calc(max(14px, env(safe-area-inset-top)) + 56px)",
-        transform: "translateX(-50%)", zIndex: 40, padding: "10px 16px", fontWeight: 800,
-        fontSize: "0.88rem", color: "#7a4a22", maxWidth: "min(92vw, 460px)", textAlign: "center",
-        transition: "opacity .5s ease",
-      });
       document.body.appendChild(t);
-      setTimeout(() => (t.style.opacity = "0"), 4200);
-      setTimeout(() => t.remove(), 4800);
+      setTimeout(() => t.classList.add("is-gone"), 4500);
+      setTimeout(() => t.remove(), 5200);
     },
   };
 
   pills.forEach((b) =>
-    b.addEventListener("click", () => {
-      if (state.openId === b.dataset.go && !state.openAuto) state.closePanel();
+    b.addEventListener("click", (e) => {
+      blurIfMouse(e);
+      if (state.openId === b.dataset.go) state.closePanel();
       else state.openPanel(b.dataset.go, { auto: false });
     }),
   );
-  $$(".panel-close").forEach((b) => b.addEventListener("click", () => state.closePanel()));
+  $$(".panel-close").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      blurIfMouse(e);
+      state.closePanel();
+    }),
+  );
   backdrop.addEventListener("click", () => state.closePanel());
   if (IS_TOUCH) document.body.classList.add("is-touch");
 
-  // Tanpa WebGL: Escape tetap menutup panel
-  if (!renderer) addEventListener("keydown", (e) => e.key === "Escape" && state.closePanel());
+  // Tanpa dunia 3D: Escape tetap menutup panel
+  if (!world) {
+    addEventListener("keydown", (e) => e.key === "Escape" && state.closePanel());
+    addEventListener("resize", () => state.sync());
+  }
 
   initTyping();
   initContactForm();
+  uiState = state;
   return state;
 }
 
 function initTyping() {
   const el = $("#typing-text");
   if (!el) return;
-  const phrases = ["Linguistik Indonesia", "Video Editor", "Content Creator", "Pembelajar Otodidak", "Tech Enthusiast", "Storyteller Visual"];
+  const phrases = ["Linguistik Indonesia", "Video Editor", "Content Creator", "Pembelajar Otodidak", "Tech Enthusiast", "Visual Storyteller"];
   if (REDUCED) return;
   let pi = 0;
   let ci = phrases[0].length;
@@ -1625,41 +1934,62 @@ function initTyping() {
   setTimeout(step, wait);
 }
 
+// EmailJS dimuat saat dibutuhkan saja, supaya CDN yang lambat tidak menahan dunia 3D
+function loadEmailJS() {
+  if (window.emailjs) return Promise.resolve(window.emailjs);
+  if (emailjsPromise) return emailjsPromise;
+  emailjsPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.emailjs.com/dist/email.min.js";
+    sc.async = true;
+    sc.onload = () => (window.emailjs ? resolve(window.emailjs) : reject(new Error("emailjs")));
+    sc.onerror = () => {
+      emailjsPromise = null;
+      sc.remove();
+      reject(new Error("emailjs"));
+    };
+    document.head.appendChild(sc);
+  });
+  return emailjsPromise;
+}
+
 function initContactForm() {
   const form = $("#contact-form");
   const status = $("#form-status");
   if (!form) return;
-  let ready = false;
-  const ensure = () => {
-    if (ready) return true;
-    if (window.emailjs) {
-      window.emailjs.init("sm08AnEPv9i2Vfjzu");
-      ready = true;
-    }
-    return ready;
+  const EMAIL = "nawfalarfa14@gmail.com";
+  let inited = false;
+
+  const fail = (text) => {
+    const href =
+      `mailto:${EMAIL}?subject=${encodeURIComponent(`Pesan dari ${form.user_name.value || "pengunjung portofolio"}`)}` +
+      `&body=${encodeURIComponent(form.message.value)}`;
+    const link = document.createElement("a");
+    link.href = href;
+    link.textContent = "kirim lewat aplikasi email";
+    status.className = "form-status err";
+    status.replaceChildren(`${text} Kamu bisa `, link, ".");
   };
+
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const btn = $("button[type=submit]", form);
-    status.className = "form-status";
-    if (!ensure()) {
-      status.textContent = "Layanan email belum termuat. Coba lagi sebentar, atau kirim langsung ke nawfalarfa14@gmail.com.";
-      status.classList.add("err");
-      return;
-    }
     btn.disabled = true;
+    status.className = "form-status";
     status.textContent = "Mengirim…";
-    window.emailjs
-      .sendForm("service_jtnlzjh", "template_1g0ebr8", form)
-      .then(() => {
-        status.textContent = "✅ Pesan terkirim! Terima kasih, nanti aku balas ya.";
-        status.classList.add("ok");
-        form.reset();
+    loadEmailJS()
+      .then((ej) => {
+        if (!inited) {
+          ej.init("sm08AnEPv9i2Vfjzu");
+          inited = true;
+        }
+        return ej.sendForm("service_jtnlzjh", "template_1g0ebr8", form).then(() => {
+          status.className = "form-status ok";
+          status.textContent = "✅ Pesan terkirim! Terima kasih, nanti aku balas ya.";
+          form.reset();
+        }, () => fail("❌ Pesan gagal terkirim."));
       })
-      .catch(() => {
-        status.textContent = "❌ Gagal mengirim. Coba lagi atau email langsung ke nawfalarfa14@gmail.com.";
-        status.classList.add("err");
-      })
+      .catch(() => fail("Layanan email sedang tidak bisa dimuat."))
       .finally(() => (btn.disabled = false));
   });
 }

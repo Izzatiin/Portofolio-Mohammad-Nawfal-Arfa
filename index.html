@@ -12,13 +12,30 @@
       content="Portofolio 3D interaktif Mohammad Nawfal Arfa — mahasiswa Linguistik Indonesia, video editor, dan content creator."
     />
     <meta name="theme-color" content="#9fd0ec" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Nawfal's World — Mohammad Nawfal Arfa" />
+    <meta
+      property="og:description"
+      content="Jelajahi planet mini 3D berisi cerita, karya, dan kontak Mohammad Nawfal Arfa."
+    />
+    <meta property="og:url" content="https://izzatiin.github.io/Portofolio-Mohammad-Nawfal-Arfa/" />
+    <meta property="og:image" content="https://izzatiin.github.io/Portofolio-Mohammad-Nawfal-Arfa/assets/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="icon" type="image/jpeg" href="icon.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Nunito:wght@500;700;800;900&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=Nunito:wght@500;700;800;900&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
     <link rel="stylesheet" href="world.css" />
   </head>
   <body class="is-loading">
@@ -29,31 +46,35 @@
       <div class="loader-card paper-torn">
         <span class="loader-title">Nawfal's World</span>
       </div>
-      <div class="loader-tag" id="loader-text">Loading…</div>
+      <div class="loader-tag" id="loader-text">Memuat…</div>
     </div>
 
     <!-- ===== Navigasi atas ===== -->
     <header class="topbar">
       <nav class="nav-pills" aria-label="Navigasi utama">
-        <button class="pill" data-go="about">About Me <span aria-hidden="true">›</span></button>
-        <button class="pill" data-go="skills">Skills <span aria-hidden="true">›</span></button>
-        <button class="pill" data-go="work">My Work <span aria-hidden="true">›</span></button>
-        <button class="pill" data-go="contact">Contact <span aria-hidden="true">›</span></button>
+        <button class="pill" data-go="about" aria-controls="panel-about" aria-expanded="false">About Me <span aria-hidden="true">›</span></button>
+        <button class="pill" data-go="skills" aria-controls="panel-skills" aria-expanded="false">Skills <span aria-hidden="true">›</span></button>
+        <button class="pill" data-go="work" aria-controls="panel-work" aria-expanded="false">My Work <span aria-hidden="true">›</span></button>
+        <button class="pill" data-go="contact" aria-controls="panel-contact" aria-expanded="false">Contact <span aria-hidden="true">›</span></button>
       </nav>
     </header>
 
     <!-- ===== Intro ===== -->
     <section id="intro" class="intro" aria-labelledby="intro-title">
+      <p class="intro-name">Mohammad Nawfal Arfa</p>
       <h1 id="intro-title" class="world-title">Nawfal's World</h1>
       <p class="intro-sub">
         <span id="typing-text">Linguistik Indonesia</span><span class="caret" aria-hidden="true">|</span>
       </p>
       <button id="explore-btn" class="btn-explore">Jelajahi Dunia <span aria-hidden="true">›</span></button>
-      <p class="intro-hint">atau pilih menu di atas untuk langsung membaca</p>
+      <p class="intro-hint">
+        atau pilih menu di atas untuk langsung membaca ·
+        <a href="classic.html">versi klasik</a>
+      </p>
     </section>
 
     <!-- ===== HUD saat bermain ===== -->
-    <div class="hud" id="hud" aria-hidden="true">
+    <div class="hud" id="hud" inert>
       <div class="hud-controls paper-chip" id="hud-controls">
         <div class="keys">
           <span class="key k-w">W</span>
@@ -63,18 +84,23 @@
           <span class="key k-space">Space</span>
         </div>
         <div class="hud-text">
-          <strong>Jalan &amp; lompat</strong>
-          <span>Drag untuk memutar kamera · scroll untuk zoom</span>
+          <strong>Jalan, lompat, Shift lari</strong>
+          <span>Seret untuk memutar kamera · gulir untuk zoom</span>
         </div>
       </div>
-      <div class="hud-prompt paper-chip" id="hud-prompt" hidden>
+      <button class="hud-prompt paper-chip" id="hud-prompt" type="button" hidden>
         <span id="hud-prompt-text">Masuk</span>
         <kbd>E</kbd>
-      </div>
-      <button class="hud-home paper-chip" id="home-btn" type="button">
-        <span aria-hidden="true">⌂</span> Back home
       </button>
-      <a class="hud-classic" href="classic.html">Versi klasik</a>
+      <div class="hud-corner">
+        <button class="hud-home paper-chip" id="home-btn" type="button">
+          <span aria-hidden="true">⌂</span> Kembali ke awal
+        </button>
+        <a class="hud-classic paper-chip" href="classic.html">Versi klasik</a>
+      </div>
+      <p class="hud-touch-hint paper-chip" id="touch-hint">
+        Geser joystick untuk jalan · seret layar untuk memutar kamera · cubit untuk zoom
+      </p>
     </div>
 
     <!-- Kontrol sentuh (HP) -->
@@ -101,16 +127,22 @@
       <div class="panel-scroll">
         <p class="panel-kicker">Rumah Nawfal · About Me</p>
         <div class="about-head">
-          <img src="img.jpg" alt="Foto Mohammad Nawfal Arfa" class="avatar" width="84" height="84" />
-          <h2 id="about-title">Hai, aku Nawfal!</h2>
+          <img src="assets/foto-nawfal.jpg" alt="Foto Mohammad Nawfal Arfa" class="avatar" width="84" height="84" />
+          <div>
+            <h2 id="about-title">Hai, aku Nawfal!</h2>
+            <p class="panel-sub">Mohammad Nawfal Arfa</p>
+          </div>
         </div>
+        <p class="tagline">
+          “Memperluas keterampilan dan menemukan cara-cara baru untuk berinovasi.”
+        </p>
         <p class="lead">
           Mahasiswa Linguistik Indonesia di Universitas Pembangunan Nasional
           "Veteran" Jawa Timur yang antusias menggabungkan bahasa dan teknologi
           digital. Selamat datang di sudut kecil duniaku.
         </p>
         <hr />
-        <h3 class="chip-title">Siapa aku</h3>
+        <h3 class="chip-title">Siapa aku?</h3>
         <p>
           Sebagai pembelajar otodidak, aku senang mengeksplorasi berbagai
           keterampilan teknis, mulai dari dasar-dasar pemrograman hingga
@@ -133,8 +165,8 @@
         <pre class="code-card" aria-label="Ringkasan dalam bentuk kode"><code>const creativeTech = {
   name: 'Mohammad Nawfal Arfa',
   role: 'Linguist &amp; Creative Creator',
-  passion: 'Exploring tech, self-taught
-            coding, and visual storytelling'
+  passion: 'Exploring tech, self-taught coding, ' +
+           'and visual storytelling'
 };</code></pre>
       </div>
     </article>
@@ -161,7 +193,7 @@
           <li><span class="skill-ico" aria-hidden="true">🎨</span><div><strong>Desain Kreatif</strong><span>Canva</span></div></li>
           <li><span class="skill-ico" aria-hidden="true">🗣️</span><div><strong>Komunikasi &amp; Analisis Bahasa</strong><span>Latar Linguistik Indonesia</span></div></li>
           <li><span class="skill-ico" aria-hidden="true">📱</span><div><strong>Teknologi Digital &amp; Gadget</strong><span>Selalu penasaran dengan yang baru</span></div></li>
-          <li><span class="skill-ico" aria-hidden="true">💻</span><div><strong>Self-Taught Coding</strong><span>HTML, CSS, dasar JavaScript</span></div></li>
+          <li><span class="skill-ico" aria-hidden="true">💻</span><div><strong>Self-Taught Coding (Basic)</strong><span>HTML &amp; CSS</span></div></li>
         </ul>
       </div>
     </article>
@@ -179,7 +211,7 @@
         <p class="panel-kicker">Bioskop Mini · My Work</p>
         <h2 id="work-title">Karya yang sedang diputar</h2>
         <div class="project">
-          <img src="Cleveroad.jpg" alt="Cuplikan film pendek Simpang Kisah" loading="lazy" />
+          <img src="assets/simpang-kisah.jpg" alt="Cuplikan film pendek Simpang Kisah" loading="lazy" class="ratio-video" />
           <h3>Simpang Kisah — Film Pendek</h3>
           <p>
             Karya naratif audio-visual yang mengeksplorasi dinamika hubungan dan
@@ -193,11 +225,11 @@
           </div>
         </div>
         <div class="project">
-          <img src="pf.png" alt="Tampilan situs web pertama Nawfal" loading="lazy" />
+          <img src="assets/web-pertama.jpg" alt="Tampilan situs web pertama Nawfal" loading="lazy" />
           <h3>Web Pertama — Eksplorasi Kode Otodidak</h3>
           <p>
             Langkah awalku mempelajari pengembangan web secara mandiri. Lewat
-            belajar otodidak, aku membangun situs interaktif ini untuk memahami
+            belajar otodidak, aku membangun situs interaktif tersebut untuk memahami
             struktur dasar HTML dan estetika desain dengan CSS — bukti dedikasiku
             menguasai keterampilan baru di luar bidang studi utamaku.
           </p>
@@ -228,10 +260,11 @@
         </p>
         <ul class="contact-list">
           <li><span aria-hidden="true">✉</span><a href="mailto:nawfalarfa14@gmail.com">nawfalarfa14@gmail.com</a></li>
-          <li><span aria-hidden="true">☎</span><a href="https://wa.me/6281244573773" target="_blank" rel="noopener noreferrer">+62 812-4457-3773</a></li>
+          <li><span aria-hidden="true">☎</span><a href="tel:+6281244573773">+62 812-4457-3773</a></li>
           <li><span aria-hidden="true">⌖</span><span>Kota Gorontalo</span></li>
         </ul>
         <div class="socials">
+          <a href="https://wa.me/6281244573773" target="_blank" rel="noopener noreferrer">WhatsApp</a>
           <a href="https://github.com/Izzatiin" target="_blank" rel="noopener noreferrer">GitHub</a>
           <a href="https://www.linkedin.com/in/nawfal-arfa-496b3930b/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
           <a href="https://www.instagram.com/izzatiin_/" target="_blank" rel="noopener noreferrer">Instagram</a>
@@ -254,7 +287,32 @@
       </div>
     </noscript>
 
-    <script src="https://cdn.emailjs.com/dist/email.min.js" defer></script>
+    <script>
+      // Jaring pengaman: kalau dunia 3D gagal dimuat, tetap tampilkan konten.
+      setTimeout(function () {
+        if (window.__worldBooted) return;
+        document.getElementById("loader").classList.add("is-done");
+        document.body.classList.remove("is-loading");
+        document.body.classList.add("no-webgl", "boot-failed");
+        var note = document.createElement("p");
+        note.className = "webgl-note";
+        note.innerHTML =
+          'Dunia 3D gagal dimuat. Pilih menu di atas untuk membaca, atau buka <a href="classic.html">versi klasik</a>.';
+        document.getElementById("intro").appendChild(note);
+        var open = null;
+        function show(id) {
+          if (open) open.hidden = true;
+          open = document.getElementById("panel-" + id);
+          if (open) open.hidden = false;
+        }
+        document.querySelectorAll(".pill").forEach(function (b) {
+          b.addEventListener("click", function () { show(b.dataset.go); });
+        });
+        document.querySelectorAll(".panel-close").forEach(function (b) {
+          b.addEventListener("click", function () { if (open) open.hidden = true; open = null; });
+        });
+      }, 12000);
+    </script>
     <script type="module" src="world.js"></script>
   </body>
 </html>

@@ -207,23 +207,26 @@ function initSectionAnimations() {
 
 /* ===================== EMAILJS ===================== */
 function initEmailJS() {
-  // Inisialisasi EmailJS
-  emailjs.init("sm08AnEPv9i2Vfjzu"); // Public key kamu
-
   const form = document.getElementById("contact-form");
   if (!form) return;
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
+    // Kalau skrip EmailJS gagal dimuat, jangan sampai form terkirim lewat URL
+    if (!window.emailjs) {
+      alert("Layanan email sedang tidak tersedia. Silakan kirim langsung ke nawfalarfa14@gmail.com.");
+      return;
+    }
+    emailjs.init("sm08AnEPv9i2Vfjzu"); // Public key
 
     emailjs
       .sendForm("service_jtnlzjh", "template_1g0ebr8", this)
       .then(() => {
-        alert("✅ Message sent successfully!");
+        alert("✅ Pesan terkirim!");
         form.reset();
       })
-      .catch((error) => {
-        alert("❌ Failed to send message: " + JSON.stringify(error));
+      .catch(() => {
+        alert("❌ Pesan gagal terkirim. Silakan kirim langsung ke nawfalarfa14@gmail.com.");
       });
   });
 }
