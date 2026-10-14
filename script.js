@@ -98,7 +98,11 @@ function initOrbitAnimations() {
 
   planets.forEach((planet, index) => {
     const startAngle = Math.random() * 360;
-    const radius = 120 + index * 40;
+    const container = planet.parentElement;
+    const maxRadius = container.clientWidth / 2 - planet.offsetWidth / 2 - 4;
+    const minRadius = (container.querySelector(".sun-core").offsetWidth / 2) + planet.offsetWidth;
+    const step = (maxRadius - minRadius) / Math.max(planets.length - 1, 1);
+    const radius = minRadius + index * step;
     const duration = 15 + Math.random() * 15;
     const direction = Math.random() > 0.5 ? "normal" : "reverse";
 
@@ -203,23 +207,26 @@ function initSectionAnimations() {
 
 /* ===================== EMAILJS ===================== */
 function initEmailJS() {
-  // Inisialisasi EmailJS
-  emailjs.init("sm08AnEPv9i2Vfjzu"); // Public key kamu
-
   const form = document.getElementById("contact-form");
   if (!form) return;
 
   form.addEventListener("submit", function (e) {
     e.preventDefault();
+    // Kalau skrip EmailJS gagal dimuat, jangan sampai form terkirim lewat URL
+    if (!window.emailjs) {
+      alert("Layanan email sedang tidak tersedia. Silakan kirim langsung ke nawfalarfa14@gmail.com.");
+      return;
+    }
+    emailjs.init("sm08AnEPv9i2Vfjzu"); // Public key
 
     emailjs
       .sendForm("service_jtnlzjh", "template_1g0ebr8", this)
       .then(() => {
-        alert("✅ Message sent successfully!");
+        alert("✅ Pesan terkirim!");
         form.reset();
       })
-      .catch((error) => {
-        alert("❌ Failed to send message: " + JSON.stringify(error));
+      .catch(() => {
+        alert("❌ Pesan gagal terkirim. Silakan kirim langsung ke nawfalarfa14@gmail.com.");
       });
   });
 }
